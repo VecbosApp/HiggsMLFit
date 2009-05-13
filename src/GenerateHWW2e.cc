@@ -1,3 +1,15 @@
+int higgsmass = 160; // GeV
+void SetHiggsMass(int m) {
+  higgsmass=m;
+}
+
+enum { ee=0, mm=1, em=2 };
+int finalstate = ee;
+void SetFinalState(int f) {
+  finalstate=f;
+}
+
+
 // Set Fit Options
 MLOptions GetDefaultOptions() {
   MLOptions opts;
@@ -149,7 +161,7 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
 
   // Initialize the fit...
   char configfilename[200];
-  sprintf(configfilename, "toyconfig/toyHWW2e.config");
+  sprintf(configfilename, "toyconfig/toyHWW-finalstate%d-%dGeV.config",finalstate,higgsmass);
 
   theFit.initialize(configfilename);
   MLWjetGenerator theGenerator(theFit, "myFit");
@@ -168,12 +180,13 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   theStudy.generateAndFit(nexp,ngen);
 
   char resultfilename[200];
-  if (outfile==0) sprintf(resultfilename,"toys/output/resultsHWW2e.dat");
+  if (outfile==0) sprintf(resultfilename,"toys/output/resultsHWW-finalstate%d-%dGeV.dat",finalstate,higgsmass);
   else sprintf(resultfilename, outfile);
   theStudy._fitParData->write(resultfilename);
 
   char variablesfilename[200];
-  sprintf(variablesfilename,"toys/variablesHWW2e.root");
+  if (outfile==0) sprintf(variablesfilename,"toys/variablesHWW2e.root");
+  else sprintf(variablesfilename,"variablesHWW2e.root");
   TFile varfile(variablesfilename,"RECREATE");
 
   RooArgSet *variables = theStudy._fitParData->get();
