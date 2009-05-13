@@ -20,15 +20,33 @@ void makeBinningFile() {
     for(float y = UltraFineRegion_Min; y<UltraFineRegion_Max; y+=ultraFineStep) {
       myfile << x << "\t" << x+ultraFineStep << "\t" << y << "\t" << y+ultraFineStep << endl;
     }
+    for(float y = UltraFineRegion_Max; y<FineRegion_Max; y+=fineStep) {
+      myfile << x << "\t" << x+ultraFineStep << "\t" << y << "\t" << y+fineStep << endl;
+    }
+    for(float y = FineRegion_Max; y<LargeRegion_Max; y+=largeStep) {
+      myfile << x << "\t" << x+ultraFineStep << "\t" << y << "\t" << y+largeStep << endl;
+    }
   }
 
   for(float x = UltraFineRegion_Max; x<FineRegion_Max; x+=fineStep) {
+    for(float y = UltraFineRegion_Min; y<UltraFineRegion_Max; y+=ultraFineStep) {
+      myfile << x << "\t" << x+fineStep << "\t" << y << "\t" << y+ultraFineStep << endl;
+    }
     for(float y = UltraFineRegion_Max; y<FineRegion_Max; y+=fineStep) {
       myfile << x << "\t" << x+fineStep << "\t" << y << "\t" << y+fineStep << endl;
+    }
+    for(float y = FineRegion_Max; y<LargeRegion_Max; y+=largeStep) {
+      myfile << x << "\t" << x+fineStep << "\t" << y << "\t" << y+largeStep << endl;
     }
   }
 
   for(float x = FineRegion_Max; x<LargeRegion_Max; x+=largeStep) {
+    for(float y = UltraFineRegion_Min; y<UltraFineRegion_Max; y+=ultraFineStep) {
+      myfile << x << "\t" << x+largeStep << "\t" << y << "\t" << y+ultraFineStep << endl;
+    }
+    for(float y = UltraFineRegion_Max; y<FineRegion_Max; y+=fineStep) {
+      myfile << x << "\t" << x+largeStep << "\t" << y << "\t" << y+fineStep << endl;
+    }
     for(float y = FineRegion_Max; y<LargeRegion_Max; y+=largeStep) {
       myfile << x << "\t" << x+largeStep << "\t" << y << "\t" << y+largeStep << endl;
     }
