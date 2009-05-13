@@ -8,10 +8,10 @@ MLOptions GetDefaultOptions() {
   opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
   opts.addBoolOption("useDxyzEVT",      "Use jet impact parameters",     kTRUE);
   opts.addBoolOption("AllFit",          "Fit all species",        kFALSE);
-  opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kTRUE);
+  opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kFALSE);
   opts.addBoolOption("WWOnlyFit",       "Fit WW species only",    kFALSE);
   opts.addBoolOption("ttbarOnlyFit",    "Fit ttbar species only", kFALSE);
-  opts.addBoolOption("otherOnlyFit",    "Fit other species only", kFALSE);
+  opts.addBoolOption("otherOnlyFit",    "Fit other species only", kTRUE);
 
   return opts;
 }
@@ -27,15 +27,15 @@ void myFit() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
-  RooRealVar *nJets = new RooRealVar("nJets","nJets",-1,1);
-  RooRealVar *MET = new RooRealVar("MET","MET",0,200,"GeV");
-  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#deg");
-  RooRealVar *minPt = new RooRealVar("minPt","minPt",0,200,"GeV");
+  RooRealVar *jetCat = new RooRealVar("jetCat","jetCat",-2,2);
+  RooRealVar *MET = new RooRealVar("MET","MET",30,200,"GeV");
+  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#circ");
+  RooRealVar *minPt = new RooRealVar("minPt","minPt",10,200,"GeV");
   RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
   RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
-  RooRealVar *weight = new RooRealVar("weight","weight",0,20);
+  RooRealVar *weight = new RooRealVar("weight","weight",0,100);
 
-  theFit.AddFlatFileColumn(nJets);
+  theFit.AddFlatFileColumn(jetCat);
   theFit.AddFlatFileColumn(MET);
   theFit.AddFlatFileColumn(deltaPhi);
   theFit.AddFlatFileColumn(minPt);
@@ -65,10 +65,10 @@ void myFit() {
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "Cruijff",  "sig_deltaPhi");
-    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Poly2",    "WW_deltaPhi");
+    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "CrystalCruijff",  "sig_deltaPhi");
+    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Cruijff",    "WW_deltaPhi");
     theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",    "ttbar_deltaPhi");
-    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "Gaussian", "other_deltaPhi");
+    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "DoubleGaussian", "other_deltaPhi");
 
     theFit.addPdfCopy("myFit", "sig_1j",   "deltaPhi", "sig_0j");
     theFit.addPdfCopy("myFit", "WW_1j",    "deltaPhi", "WW_0j");
@@ -133,15 +133,15 @@ void myFit() {
 
   // jet bin category: val =  1 --> Njets = 0
   //                   val = -1 --> Njets = 1
-  theFit.addPdfWName("myFit", "sig_0j" ,   "nJets",  "Poly2",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "WW_0j",     "nJets",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "ttbar_0j",  "nJets",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "other_0j",  "nJets",  "sig_0j");
+  theFit.addPdfWName("myFit", "sig_0j" ,   "jetCat",  "Poly2",  "Nj_0");
+  theFit.addPdfCopy("myFit",  "WW_0j",     "jetCat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "ttbar_0j",  "jetCat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "other_0j",  "jetCat",  "sig_0j");
                                             
-  theFit.addPdfWName("myFit", "sig_1j" ,   "nJets",  "Poly2",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "WW_1j",     "nJets",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "ttbar_1j",  "nJets",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "other_1j",  "nJets",  "sig_1j");
+  theFit.addPdfWName("myFit", "sig_1j" ,   "jetCat",  "Poly2",  "Nj_1");
+  theFit.addPdfCopy("myFit",  "WW_1j",     "jetCat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "ttbar_1j",  "jetCat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "other_1j",  "jetCat",  "sig_1j");
 
 }
 
@@ -270,7 +270,7 @@ void PlotHiggsWW(int nbins) {
     MassPlot->SetAxisColor(1,"x");
     MassPlot->SetLabelColor(1, "X");
     MassPlot->SetLabelColor(1, "Y");
-    MassPlot->SetXTitle("#Delta #phi [#deg]");
+    MassPlot->SetXTitle("#Delta #phi [#circ]");
 
     MassPlot->SetYTitle("Events");
     MassPlot->Draw();
@@ -423,15 +423,15 @@ RooPlot *MakePlot(TString VarName, MLFit* theFit, RooDataSet* theData, const cha
     MLFit theFit2;
 
     // define the structure of the dataset
-    RooRealVar *nJets = new RooRealVar("nJets","nJets",0);
-    RooRealVar *MET = new RooRealVar("MET","MET",0,200,"GeV");
-    RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#deg");
-    RooRealVar *minPt = new RooRealVar("minPt","minPt",0,200,"GeV");
-    RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,1000,"#mum");
-    RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,1000,"#mum");
-    RooRealVar *weight = new RooRealVar("weight","weight",0,20);
+    RooRealVar *jetCat = new RooRealVar("jetCat","jetCat",-2,2);
+    RooRealVar *MET = new RooRealVar("MET","MET",30,200,"GeV");
+    RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#circ");
+    RooRealVar *minPt = new RooRealVar("minPt","minPt",10,200,"GeV");
+    RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
+    RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
+    RooRealVar *weight = new RooRealVar("weight","weight",0,100);
 
-    theFit2.AddFlatFileColumn(nJets);
+    theFit2.AddFlatFileColumn(jetCat);
     theFit2.AddFlatFileColumn(MET);
     theFit2.AddFlatFileColumn(deltaPhi);
     theFit2.AddFlatFileColumn(minPt);
