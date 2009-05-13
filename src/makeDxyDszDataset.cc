@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void makeDxyDszDataset(int njets=1) {
+void makeDxyDszDataset() {
 
   string species[4];
   species[0] = "Higgs";
@@ -45,7 +45,8 @@ void makeDxyDszDataset(int njets=1) {
         
         tree->GetEntry(jentry);
 
-        if(nJets != njets) continue;
+        // nJets = 1 for bin 0 and -1 for bin 1
+        if(nJets > 0 ) continue;
 
         myfile << dxy << "\t" << dsz << endl;
         
