@@ -8,8 +8,8 @@ MLOptions GetDefaultOptions() {
   opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
   opts.addBoolOption("useDxyzEVT",      "Use jet impact parameters",     kTRUE);
   opts.addBoolOption("AllFit",          "Fit all species",        kFALSE);
-  opts.addBoolOption("HiggsOnlyFit",    "Fit W species only",     kTRUE);
-  opts.addBoolOption("WWOnlyFit",       "Fit W species only",     kFALSE);
+  opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kTRUE);
+  opts.addBoolOption("WWOnlyFit",       "Fit WW species only",    kFALSE);
   opts.addBoolOption("ttbarOnlyFit",    "Fit ttbar species only", kFALSE);
   opts.addBoolOption("otherOnlyFit",    "Fit other species only", kFALSE);
 
@@ -27,12 +27,12 @@ void myFit() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
-  RooRealVar *nJets = new RooRealVar("nJets","nJets",0);
+  RooRealVar *nJets = new RooRealVar("nJets","nJets",-1,1);
   RooRealVar *MET = new RooRealVar("MET","MET",0,200,"GeV");
   RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#deg");
   RooRealVar *minPt = new RooRealVar("minPt","minPt",0,200,"GeV");
-  RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,1000,"#mum");
-  RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,1000,"#mum");
+  RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
+  RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
   RooRealVar *weight = new RooRealVar("weight","weight",0,20);
 
   theFit.AddFlatFileColumn(nJets);
@@ -65,9 +65,9 @@ void myFit() {
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "Crujiff",  "sig_deltaPhi");
+    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "Cruijff",  "sig_deltaPhi");
     theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Poly2",    "WW_deltaPhi");
-    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "poly2",    "ttbar_deltaPhi");
+    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",    "ttbar_deltaPhi");
     theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "Gaussian", "other_deltaPhi");
 
     theFit.addPdfCopy("myFit", "sig_1j",   "deltaPhi", "sig_0j");
@@ -114,15 +114,15 @@ void myFit() {
   if(opts.getBoolVal("useDxyzEVT")) {
     
     MLStrList obs("dxyEVT","dszEVT");
-    MLStrList sig_args("binning.txt","datasets/dxy_dsz-data-sig.txt");
-    MLStrList WW_args("binning.txt","datasets/dxy_dsz-data-WW.txt");
-    MLStrList ttbar_args("binning.txt","datasets/dxy_dsz-data-ttbar.txt");
-    MLStrList other_args("binning.txt","datasets/dxy_dsz-data-other.txt");
+    MLStrList sig_args("datasets/binning.txt","datasets/dxy_dsz-data-sig.txt");
+    MLStrList WW_args("datasets/binning.txt","datasets/dxy_dsz-data-WW.txt");
+    MLStrList ttbar_args("datasets/binning.txt","datasets/dxy_dsz-data-ttbar.txt");
+    MLStrList other_args("datasets/binning.txt","datasets/dxy_dsz-data-other.txt");
 
-    theFit.addPdfWName("myFit", "sig_0j",   obs, "NoPdf", "sig_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "WW_0j",    obs, "NoPdf", "WW_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "ttbar_0j", obs, "NoPdf", "ttbar_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "other_0j", obs, "NoPdf", "other_0j_DxyzEVT");
+    theFit.addPdfWName("myFit", "sig_0j",   obs, "2DNoPdf", TList(), "sig_0j_DxyzEVT");
+    theFit.addPdfWName("myFit", "WW_0j",    obs, "2DNoPdf", TList(), "WW_0j_DxyzEVT");
+    theFit.addPdfWName("myFit", "ttbar_0j", obs, "2DNoPdf", TList(), "ttbar_0j_DxyzEVT");
+    theFit.addPdfWName("myFit", "other_0j", obs, "2DNoPdf", TList(), "other_0j_DxyzEVT");
 
     theFit.addPdfWName("myFit", "sig_1j",   obs, "2DArbHist",  sig_args,   "sig_1j_DxyzEVT");
     theFit.addPdfWName("myFit", "WW_1j",    obs, "2DArbHist",  WW_args,    "WW_1j_DxyzEVT");
@@ -133,15 +133,15 @@ void myFit() {
 
   // jet bin category: val =  1 --> Njets = 0
   //                   val = -1 --> Njets = 1
-  theFit.addPdfWName("myFit", "sig_0j" ,   "NjetBin",  "Poly2",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "WW_0j",     "NjetBin",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "ttbar_0j",  "NjetBin",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "other_0j",  "NjetBin",  "Nj_0");
-
-  theFit.addPdfWName("myFit", "sig_1j" ,   "NjetBin",  "Poly2",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "WW_1j",     "NjetBin",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "ttbar_1j",  "NjetBin",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "other_1j",  "NjetBin",  "Nj_1");
+  theFit.addPdfWName("myFit", "sig_0j" ,   "nJets",  "Poly2",  "Nj_0");
+  theFit.addPdfCopy("myFit",  "WW_0j",     "nJets",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "ttbar_0j",  "nJets",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "other_0j",  "nJets",  "sig_0j");
+                                            
+  theFit.addPdfWName("myFit", "sig_1j" ,   "nJets",  "Poly2",  "Nj_1");
+  theFit.addPdfCopy("myFit",  "WW_1j",     "nJets",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "ttbar_1j",  "nJets",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "other_1j",  "nJets",  "sig_1j");
 
 }
 
