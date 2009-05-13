@@ -33,10 +33,10 @@ void makeDxyDszDataset() {
     if(file) {
       
       float dxy, dsz;
-      int nJets;
+      int jetCat;
       tree->SetBranchAddress("dxyEVT", &dxy);
       tree->SetBranchAddress("dszEVT", &dsz);
-      tree->SetBranchAddress("nJets", &nJets);
+      tree->SetBranchAddress("jetCat", &jetCat);
 
       Long64_t nentries = tree->GetEntriesFast();
       for(Long64_t jentry=0; jentry<nentries;jentry++) {
@@ -45,8 +45,8 @@ void makeDxyDszDataset() {
         
         tree->GetEntry(jentry);
 
-        // nJets = 1 for bin 0 and -1 for bin 1
-        if(nJets > 0 ) continue;
+        // jetCat = 1 for bin 0 and -1 for bin 1
+        if(jetCat > 0 ) continue;
 
         myfile << dxy << "\t" << dsz << endl;
         
