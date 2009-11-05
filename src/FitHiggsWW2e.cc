@@ -2,15 +2,20 @@
 MLOptions GetDefaultOptions() {
   MLOptions opts;
   // Fit configuration
+  opts.addBoolOption("fitee",           "H->WW->2e2nu", kTRUE);
+  opts.addBoolOption("fitmm",           "H->WW->2m2nu", kFALSE);
+  opts.addBoolOption("fitem",           "H->WW->2e2nu", kFALSE);
   opts.addBoolOption("weightedDataset", "use event weight instead of 1", kTRUE);
-  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
-  opts.addBoolOption("useMinPt",        "Use pT of the slowest leptons", kTRUE);
-  opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
-  opts.addBoolOption("useDxyzEVT",      "Use jet impact parameters",     kTRUE);
+  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kFALSE);
+  opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kFALSE);
+  opts.addBoolOption("useMET",          "Use MET",                       kFALSE);
+  opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
+  opts.addBoolOption("useBtag",         "Use jet impact parameters",     kFALSE);
   opts.addBoolOption("AllFit",          "Fit all species",        kFALSE);
   opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kFALSE);
   opts.addBoolOption("WWOnlyFit",       "Fit WW species only",    kFALSE);
   opts.addBoolOption("ttbarOnlyFit",    "Fit ttbar species only", kFALSE);
+  opts.addBoolOption("ZOnlyFit",        "Fit Z species only",     kFALSE);
   opts.addBoolOption("otherOnlyFit",    "Fit other species only", kTRUE);
 
   return opts;
@@ -27,121 +32,165 @@ void myFit() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
-  RooRealVar *jetCat = new RooRealVar("jetCat","jetCat",-2,2);
-  RooRealVar *MET = new RooRealVar("MET","MET",30,200,"GeV");
-  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#circ");
-  RooRealVar *minPt = new RooRealVar("minPt","minPt",10,200,"GeV");
-  RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
-  RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
-  RooRealVar *weight = new RooRealVar("weight","weight",0,100);
+  RooRealVar *jetcat = new RooRealVar("jetcat","jetcat",-1,1); // cut the -2 ( >1 jet )
+  RooRealVar *met    = new RooRealVar("met","E_{T}^{miss}",0,200,"GeV");
+  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","#Delta#phi",0,180,"#deg");
+  RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",20,200,"GeV");
+  RooRealVar *eleInvMass = new RooRealVar("eleInvMass","m(l^{+}l^{-})",12,150,"GeV");
+  RooRealVar *bTagImpPar = new RooRealVar("bTagImpPar","b-tag",-1001.,2.0);
+  RooRealVar *weight = new RooRealVar("weight","weight",-100,10000);
 
-  theFit.AddFlatFileColumn(jetCat);
-  theFit.AddFlatFileColumn(MET);
+  theFit.AddFlatFileColumn(jetcat);
+  theFit.AddFlatFileColumn(met);
   theFit.AddFlatFileColumn(deltaPhi);
-  theFit.AddFlatFileColumn(minPt);
-  theFit.AddFlatFileColumn(dxyEVT);
-  theFit.AddFlatFileColumn(dszEVT);
+  theFit.AddFlatFileColumn(maxPtEle);
+  theFit.AddFlatFileColumn(eleInvMass);
+  theFit.AddFlatFileColumn(bTagImpPar);
   theFit.AddFlatFileColumn(weight);
 
   // define a fit model
   theFit.addModel("myFit", "Higgs to WW");
 
   // define species in the 0-jet bin
-  theFit.addSpecies("myFit", "sig_0j",    "Zero Jet Signal Component");
-  theFit.addSpecies("myFit", "WW_0j",     "Zero Jet Signal Component");
-  theFit.addSpecies("myFit", "ttbar_0j",  "Zero Jet ttbar Component");
   theFit.addSpecies("myFit", "other_0j",  "Zero Jet Other Bkgs Component");
+  theFit.addSpecies("myFit", "sig_0j",    "Zero Jet Signal Component");
+  theFit.addSpecies("myFit", "WW_0j",     "Zero Jet Sig Component");
+  theFit.addSpecies("myFit", "ttbar_0j",  "Zero Jet ttbar Component");
+  theFit.addSpecies("myFit", "Z_0j",      "Zero Jet Z Component");
+
 
   // define species in the 1-jet bin
-  theFit.addSpecies("myFit", "sig_1j",    "One Jet Signal Component");
-  theFit.addSpecies("myFit", "WW_1j",     "One Jet Signal Component");
-  theFit.addSpecies("myFit", "ttbar_1j",  "One Jet ttbar Component");
   theFit.addSpecies("myFit", "other_1j",  "One Jet Other Bkgs Component");
+  theFit.addSpecies("myFit", "sig_1j",    "One Jet Signal Component");
+  theFit.addSpecies("myFit", "WW_1j",     "One Jet WW Component");
+  theFit.addSpecies("myFit", "ttbar_1j",  "One Jet ttbar Component");
+  theFit.addSpecies("myFit", "Z_1j",      "One Jet Z Component");
 
   theFit.fitWithEff("sig_0j",   "sig_1j",   "sig");
   theFit.fitWithEff("WW_0j",    "WW_1j",    "WW");
   theFit.fitWithEff("ttbar_0j", "ttbar_1j", "ttbar");
+  theFit.fitWithEff("Z_0j",     "Z_1j",     "Z");
   theFit.fitWithEff("other_0j", "other_1j", "other");
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "CrystalCruijff",  "sig_deltaPhi");
-    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Cruijff",    "WW_deltaPhi");
-    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",    "ttbar_deltaPhi");
-    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "DoubleGaussian", "other_deltaPhi");
+    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "Cruijff",         "sig_deltaPhi");
+    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Cruijff",         "WW_deltaPhi");
+    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",           "ttbar_deltaPhi");
+    theFit.addPdfWName("myFit", "Z_0j",     "deltaPhi", "Cruijff",         "Z_deltaPhi");
+    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "Cruijff",         "other_deltaPhi");
 
     theFit.addPdfCopy("myFit", "sig_1j",   "deltaPhi", "sig_0j");
     theFit.addPdfCopy("myFit", "WW_1j",    "deltaPhi", "WW_0j");
     theFit.addPdfCopy("myFit", "ttbar_1j", "deltaPhi", "ttbar_0j");
+    theFit.addPdfCopy("myFit", "Z_1j",     "deltaPhi", "Z_0j");
     theFit.addPdfCopy("myFit", "other_1j", "deltaPhi", "other_0j");
   }
 
-  // minPt PDF
-  if(opts.getBoolVal("useMinPt")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "minPt",  "Cruijff", "sig_minPt");
-    theFit.addPdfWName("myFit", "WW_0j",    "minPt",  "Cruijff", "WW_minPt");
-    theFit.addPdfWName("myFit", "ttbar_0j", "minPt",  "Cruijff", "ttbar_minPt");
-    theFit.addPdfWName("myFit", "other_0j", "minPt",  "Cruijff", "other_minPt");
+  // maxPt PDF
+  if(opts.getBoolVal("useMaxPt")) {
+    theFit.addPdfWName("myFit", "sig_0j",   "maxPtEle",  "Cruijff", "sig_maxPt");
+    theFit.addPdfWName("myFit", "WW_0j",    "maxPtEle",  "Cruijff", "WW_maxPt");
+    theFit.addPdfWName("myFit", "ttbar_0j", "maxPtEle",  "Cruijff", "ttbar_maxPt");
+    theFit.addPdfWName("myFit", "Z_0j",     "maxPtEle",  "Cruijff", "Z_maxPt");
+    theFit.addPdfWName("myFit", "other_0j", "maxPtEle",  "Cruijff", "other_maxPt");
 
-    theFit.addPdfCopy("myFit", "sig_1j",   "minPt", "sig_0j");
-    theFit.addPdfCopy("myFit", "WW_1j",    "minPt", "WW_0j");
-    theFit.addPdfCopy("myFit", "ttbar_1j", "minPt", "ttbar_0j");
-    theFit.addPdfCopy("myFit", "other_1j", "minPt", "other_0j");
+    theFit.addPdfCopy("myFit", "sig_1j",   "maxPtEle", "sig_0j");
+    theFit.addPdfCopy("myFit", "WW_1j",    "maxPtEle", "WW_0j");
+    theFit.addPdfCopy("myFit", "ttbar_1j", "maxPtEle", "ttbar_0j");
+    theFit.addPdfCopy("myFit", "Z_1j",     "maxPtEle", "Z_0j");
+    theFit.addPdfCopy("myFit", "other_1j", "maxPtEle", "other_0j");
   }
 
-  // MET PDF
-  // use histogram PDF to limit sensitivity to the tail
-  const int nbins = 8;
-  double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
+  // mll PDF
+  if(opts.getBoolVal("useMll")) {
+    theFit.addPdfWName("myFit", "sig_0j",   "eleInvMass",  "Cruijff", "sig_mll");
+    theFit.addPdfWName("myFit", "WW_0j",    "eleInvMass",  "DoubleGaussian", "WW_mll");
+    theFit.addPdfWName("myFit", "ttbar_0j", "eleInvMass",  "Poly2", "ttbar_mll");
+    theFit.addPdfWName("myFit", "Z_0j",     "eleInvMass",  "Cruijff", "Z_mll");
+    theFit.addPdfWName("myFit", "other_0j", "eleInvMass",  "Cruijff", "other_mll");
 
-  TAxis* limits = new TAxis(nbins,limitarray) ;
-  TList args ;
-  args.Add(limits);
+    theFit.addPdfCopy("myFit", "sig_1j",   "eleInvMass", "sig_0j");
+    theFit.addPdfCopy("myFit", "WW_1j",    "eleInvMass", "WW_0j");
+    theFit.addPdfCopy("myFit", "ttbar_1j", "eleInvMass", "ttbar_0j");
+    theFit.addPdfCopy("myFit", "Z_1j",     "eleInvMass", "Z_0j");
+    theFit.addPdfCopy("myFit", "other_1j", "eleInvMass", "other_0j");
+  }
+
+  // met PDF
+  // use histogram PDF to limit sensitivity to the tail
+//   const int nbinsMET = 12;
+//   double limitarrayMET[] = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0,4 0.0, 50.0, 60.0, 70.0, 100., 200.0};
+
+//   TAxis* limitsMET = new TAxis(nbinsMET,limitarrayMET) ;
+//   TList argsMET ;
+//   argsMET.Add(limitsMET);
+
+//   if(opts.getBoolVal("useMET")) {
+//     theFit.addPdfWName("myFit", "sig_0j",   "met",  "BinnedPdf", argsMET, "sig_met");
+//     theFit.addPdfWName("myFit", "WW_0j",    "met",  "BinnedPdf", argsMET, "WW_met");
+//     theFit.addPdfWName("myFit", "ttbar_0j", "met",  "BinnedPdf", argsMET, "ttbar_met");
+//     theFit.addPdfWName("myFit", "Z_0j",     "met",  "BinnedPdf", argsMET, "Z_met");
+//     theFit.addPdfWName("myFit", "other_0j", "met",  "BinnedPdf", argsMET, "other_met");
+
+//     theFit.addPdfCopy("myFit", "sig_1j",   "met", "sig_0j");
+//     theFit.addPdfCopy("myFit", "WW_1j",    "met", "WW_0j");
+//     theFit.addPdfCopy("myFit", "ttbar_1j", "met", "ttbar_0j");
+//     theFit.addPdfCopy("myFit", "Z_1j",     "met", "Z_0j");
+//     theFit.addPdfCopy("myFit", "other_1j", "met", "other_0j");
+//   }
 
   if(opts.getBoolVal("useMET")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "MET",  "BinnedPdf", args, "sig_MET");
-    theFit.addPdfWName("myFit", "WW_0j",    "MET",  "BinnedPdf", args, "WW_MET");
-    theFit.addPdfWName("myFit", "ttbar_0j", "MET",  "BinnedPdf", args, "ttbar_MET");
-    theFit.addPdfWName("myFit", "other_0j", "MET",  "BinnedPdf", args, "other_MET");
+    theFit.addPdfWName("myFit", "sig_0j",   "met",  "Cruijff", "sig_met");
+    theFit.addPdfWName("myFit", "WW_0j",    "met",  "DoubleGaussian", "WW_met");
+    theFit.addPdfWName("myFit", "ttbar_0j", "met",  "Cruijff", "ttbar_met");
+    theFit.addPdfWName("myFit", "Z_0j",     "met",  "Cruijff", "Z_met");
+    theFit.addPdfWName("myFit", "other_0j", "met",  "Cruijff", "other_met");
 
-    theFit.addPdfCopy("myFit", "sig_1j",   "MET", "sig_0j");
-    theFit.addPdfCopy("myFit", "WW_1j",    "MET", "WW_0j");
-    theFit.addPdfCopy("myFit", "ttbar_1j", "MET", "ttbar_0j");
-    theFit.addPdfCopy("myFit", "other_1j", "MET", "other_0j");
+    theFit.addPdfCopy("myFit", "sig_1j",   "met", "sig_0j");
+    theFit.addPdfCopy("myFit", "WW_1j",    "met", "WW_0j");
+    theFit.addPdfCopy("myFit", "ttbar_1j", "met", "ttbar_0j");
+    theFit.addPdfCopy("myFit", "Z_1j",     "met", "Z_0j");
+    theFit.addPdfCopy("myFit", "other_1j", "met", "other_0j");
   }
 
   // jet impact parameters: used only in the 1-jet bin
-  if(opts.getBoolVal("useDxyzEVT")) {
+  const int nbinsBtag = 8;
+  double limitarrayBtag[] = {0.,0.05,0.1,0.15,0.2,0.25,0.40,1.0,2.0};
+
+  TAxis* limitsBtag = new TAxis(nbinsBtag,limitarrayBtag) ;
+  TList argsBtag ;
+  argsBtag.Add(limitsBtag);
+
+  if(opts.getBoolVal("useBtag")) {
     
-    MLStrList obs("dxyEVT","dszEVT");
-    MLStrList sig_args("datasets/binning.txt","datasets/dxy_dsz-data-sig.txt");
-    MLStrList WW_args("datasets/binning.txt","datasets/dxy_dsz-data-WW.txt");
-    MLStrList ttbar_args("datasets/binning.txt","datasets/dxy_dsz-data-ttbar.txt");
-    MLStrList other_args("datasets/binning.txt","datasets/dxy_dsz-data-other.txt");
+    theFit.addPdfWName("myFit", "sig_0j",   "NoPdf",  "sig_0j_btag");
+    theFit.addPdfWName("myFit", "WW_0j",    "NoPdf",  "WW_0j_btag");
+    theFit.addPdfWName("myFit", "ttbar_0j", "NoPdf",  "ttbar_0j_btag");
+    theFit.addPdfWName("myFit", "Z_0j",     "NoPdf",  "Z_0j_btag");
+    theFit.addPdfWName("myFit", "other_0j", "NoPdf",  "other_0j_btag");
 
-    theFit.addPdfWName("myFit", "sig_0j",   obs, "2DNoPdf", TList(), "sig_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "WW_0j",    obs, "2DNoPdf", TList(), "WW_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "ttbar_0j", obs, "2DNoPdf", TList(), "ttbar_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "other_0j", obs, "2DNoPdf", TList(), "other_0j_DxyzEVT");
-
-    theFit.addPdfWName("myFit", "sig_1j",   obs, "2DArbHist",  sig_args,   "sig_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "WW_1j",    obs, "2DArbHist",  WW_args,    "WW_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "ttbar_1j", obs, "2DArbHist",  ttbar_args, "ttbar_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "other_1j", obs, "2DArbHist",  other_args, "other_1j_DxyzEVT");
+    theFit.addPdfWName("myFit", "sig_1j",   "bTagImpPar", "BinnedPdf",  argsBtag, "sig_1j_btag");
+    theFit.addPdfWName("myFit", "WW_1j",    "bTagImpPar", "BinnedPdf",  argsBtag, "WW_1j_btag");
+    theFit.addPdfWName("myFit", "ttbar_1j", "bTagImpPar", "BinnedPdf",  argsBtag, "ttbar_1j_btag");
+    theFit.addPdfWName("myFit", "Z_1j",     "bTagImpPar", "BinnedPdf",  argsBtag, "Z_1j_btag");
+    theFit.addPdfWName("myFit", "other_1j", "bTagImpPar", "BinnedPdf",  argsBtag, "other_1j_btag");
 
   }
 
   // jet bin category: val =  1 --> Njets = 0
   //                   val = -1 --> Njets = 1
-  theFit.addPdfWName("myFit", "sig_0j" ,   "jetCat",  "Poly2",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "WW_0j",     "jetCat",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "ttbar_0j",  "jetCat",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "other_0j",  "jetCat",  "sig_0j");
+  theFit.addPdfWName("myFit", "sig_0j" ,   "jetcat",  "Poly2",  "Nj_0");
+  theFit.addPdfCopy("myFit",  "WW_0j",     "jetcat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "ttbar_0j",  "jetcat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "Z_0j",      "jetcat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "other_0j",  "jetcat",  "sig_0j");
                                             
-  theFit.addPdfWName("myFit", "sig_1j" ,   "jetCat",  "Poly2",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "WW_1j",     "jetCat",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "ttbar_1j",  "jetCat",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "other_1j",  "jetCat",  "sig_1j");
+  theFit.addPdfWName("myFit", "sig_1j" ,   "jetcat",  "Poly2",  "Nj_1");
+  theFit.addPdfCopy("myFit",  "WW_1j",     "jetcat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "ttbar_1j",  "jetcat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "Z_1j",      "jetcat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "other_1j",  "jetcat",  "sig_1j");
 
 }
 
@@ -156,18 +205,22 @@ void FitHiggsWW() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
+    // final state suffix
+  char finalstate[5];
+  if(opts.getBoolVal("fitee")) sprintf(finalstate,"ee");
+  if(opts.getBoolVal("fitmm")) sprintf(finalstate,"mm");
+  if(opts.getBoolVal("fitem")) sprintf(finalstate,"em");
+
   // Load the data
   char datasetname[200];
-  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"datasets/Higgs_21X_data.root");
-  else sprintf(datasetname,"datasets/hww_2e_Datasets_21X.root ");
-  char treename[100];
-  if(opts.getBoolVal("AllFit")) sprintf(treename,"data");
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(treename,"Higgs");
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(treename,"WW");
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(treename,"ttbar");
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(treename,"other");
-  theFit.addDataSetFromRootFile(treename, treename, datasetname);
-  RooDataSet *data = theFit.getDataSet(treename);
+  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"results/datasets/Higgs_data_%s.root",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H165_%s.root",finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(datasetname,"results/datasets/WW_%s.root",finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(datasetname,"results/datasets/TTbarJetsMadgraph_%s.root",finalstate);
+  if(opts.getBoolVal("ZOnlyFit")) sprintf(datasetname,"results/datasets/Zspecies_%s.root",finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(datasetname,"results/datasets/others_%s.root",finalstate);
+  theFit.addDataSetFromRootFile("T1", "T1", datasetname);
+  RooDataSet *data = theFit.getDataSet("T1");
 
   // use event weights
   if(opts.getBoolVal("weightedDataset")) data->setWeightVar("weight");
@@ -178,12 +231,13 @@ void FitHiggsWW() {
   // Initialize the fit...
   if(opts.getBoolVal("AllFit")) {
     char initconfigfile[200];
-    sprintf(initconfigfile,"fitconfig/fitHiggs.config");
+    sprintf(initconfigfile,"fitconfig/fitHWW-%s.config",finalstate);
     theFit.initialize(initconfigfile);
   }
   if(opts.getBoolVal("HiggsOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-HiggsOnly.config");
   if(opts.getBoolVal("WWOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-WWOnly.config");
   if(opts.getBoolVal("ttbarOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-TTbarOnly.config");
+  if(opts.getBoolVal("ZOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-ZOnly.config");
   if(opts.getBoolVal("otherOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-otherOnly.config");
 
   // Print Fit configuration 
@@ -195,24 +249,14 @@ void FitHiggsWW() {
   
   // write the config file corresponding to the fit minimum
   char configfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(configfilename, "fitres/fitMinimumHiggsWW.config");
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-HiggsOnly.config");
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-WWOnly.config");
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-TTbarOnly.config");
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-otherOnly.config");
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename, "fitres/fitMinimum-%s.config",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-HiggsOnly.config",finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-WWOnly.config",finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-TTbarOnly.config",finalstate);
+  if(opts.getBoolVal("ZOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-ZOnly.config",finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-otherOnly.config",finalstate);
+
   theFit.writeConfigFile(configfilename);  
-
-  // save the fit result in ROOT 
-  char rootfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(rootfilename, "fitres/fitMinimumHiggsWW.root");
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(rootfilename,"shapesHiggs/root/fitRes-HiggsOnly.root");
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(rootfilename,"shapesHiggs/root/fitRes-WWOnly.root");
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(rootfilename,"shapesHiggs/root/fitRes-TTbarOnly.root");
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(rootfilename,"shapesHiggs/root/fitRes-otherOnly.root");
-
-  TFile *file = new TFile(rootfilename,"recreate");
-  fitres->Write();
-  file->Close();
 
 }
 
@@ -225,18 +269,22 @@ void PlotHiggsWW(int nbins) {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
+  // final state suffix
+  char finalstate[5];
+  if(opts.getBoolVal("fitee")) sprintf(finalstate,"ee");
+  if(opts.getBoolVal("fitmm")) sprintf(finalstate,"mm");
+  if(opts.getBoolVal("fitem")) sprintf(finalstate,"em");
+
   // Load the data
   char datasetname[200];
-  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"datasets/Higgs_21X_data.root");
-  else sprintf(datasetname,"datasets/hww_2e_Datasets_21X.root ");
-  char treename[100];
-  if(opts.getBoolVal("AllFit")) sprintf(treename,"data");
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(treename,"Higgs");
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(treename,"WW");
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(treename,"ttbar");
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(treename,"other");
-  theFit.addDataSetFromRootFile(treename, treename, datasetname);
-  RooDataSet *data = theFit.getDataSet(treename);
+  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"results/datasets/Higgs_data_%s.root",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H165_%s.root",finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(datasetname,"results/datasets/WW_%s.root",finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(datasetname,"results/datasets/TTbarJetsMadgraph_%s.root",finalstate);
+  if(opts.getBoolVal("ZOnlyFit")) sprintf(datasetname,"results/datasets/Zspecies_%s.root",finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(datasetname,"results/datasets/others_%s.root",finalstate);
+  theFit.addDataSetFromRootFile("T1", "T1", datasetname);
+  RooDataSet *data = theFit.getDataSet("T1");
 
   bool usePoissonError=true;
   // use event weights
@@ -248,19 +296,22 @@ void PlotHiggsWW(int nbins) {
   // build the fit likelihood
   RooAbsPdf *myPdf = theFit.buildModel("myFit");
 
+
   // Initialize the fit...
   char configfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimumHiggsWW.config");
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-HiggsOnly.config");
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-WWOnly.config");
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-TTbarOnly.config");
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "shapesHiggs/config/fitMinimum-otherOnly.config");
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-%s-160GeV.config",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-HiggsOnly.config",finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-WWOnly.config",finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-TTbarOnly.config",finalstate);
+  if(opts.getBoolVal("ZOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-ZOnly.config",finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum-%s-otherOnly.config",finalstate);
   theFit.initialize(configfilename);
 
   // draw normalized to the full yield, not N * N_0j_eff
   theFit.getRealPar("eff_sig")->setVal(1.);  
   theFit.getRealPar("eff_WW")->setVal(1.);  
   theFit.getRealPar("eff_ttbar")->setVal(1.);  
+  theFit.getRealPar("eff_Z")->setVal(1.);  
   theFit.getRealPar("eff_other")->setVal(1.);  
 
   if(opts.getBoolVal("useDeltaPhi")) {
@@ -279,38 +330,42 @@ void PlotHiggsWW(int nbins) {
     char Cfilename[200];
 
     if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/deltaPhi-data.eps");
-      sprintf(Cfilename,"fit-plots/macro/deltaPhi-data.C");
+      sprintf(epsfilename,"fit-plots/eps/%s-deltaPhi-data.eps",finalstate);
+      sprintf(Cfilename,"fit-plots/macro/%s-deltaPhi-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/deltaPhi-HiggsOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/deltaPhi-HiggsOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-HiggsOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-HiggsOnly.C",finalstate);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/deltaPhi-WWOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/deltaPhi-WWOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-WWOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-WWOnly.C",finalstate);
     }
     if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/deltaPhi-ttbarOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/deltaPhi-ttbarOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ttbarOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ttbarOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("ZOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ZOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ZOnly.C",finalstate);
     }
     if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/deltaPhi-otherOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/deltaPhi-otherOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-otherOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-otherOnly.C",finalstate);
     }
     c->SaveAs(epsfilename);
     c->SaveAs(Cfilename);
   }
 
 
-  if(opts.getBoolVal("useMinPt")) {
+  if(opts.getBoolVal("useMaxPt")) {
     TCanvas *c = new TCanvas("c","fitResult");
-    RooPlot* MassPlot = MakePlot("minPt", &theFit, data, configfilename, nbins, usePoissonError);    
+    RooPlot* MassPlot = MakePlot("maxPtEle", &theFit, data, configfilename, nbins, usePoissonError);    
     
     MassPlot->SetAxisColor(1,"x");
     MassPlot->SetLabelColor(1, "X");
     MassPlot->SetLabelColor(1, "Y");
-    MassPlot->SetXTitle("p_{T}^{min} [GeV]");
+    MassPlot->SetXTitle("p_{T}^{max} [GeV]");
 
     MassPlot->SetYTitle("Events");
     MassPlot->Draw();
@@ -319,24 +374,28 @@ void PlotHiggsWW(int nbins) {
     char Cfilename[200];
 
     if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/minPt-data.eps");
-      sprintf(Cfilename,"fit-plots/macro/minPt-data.C");
+      sprintf(epsfilename,"fit-plots/eps/%s-maxPt-data.eps",finalstate);
+      sprintf(Cfilename,"fit-plots/macro/%s-maxPt-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/minPt-HiggsOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/minPt-HiggsOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-HiggsOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-HiggsOnly.C",finalstate);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/minPt-WWOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/minPt-WWOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-WWOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-WWOnly.C",finalstate);
     }
     if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/minPt-ttbarOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/minPt-ttbarOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-ttbarOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-ttbarOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("ZOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ZOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ZOnly.C",finalstate);
     }
     if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/minPt-otherOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/minPt-otherOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-otherOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-otherOnly.C",finalstate);
     }
     c->SaveAs(epsfilename);
     c->SaveAs(Cfilename);
@@ -344,7 +403,7 @@ void PlotHiggsWW(int nbins) {
 
   if(opts.getBoolVal("useMET")) {
     TCanvas *c = new TCanvas("c","fitResult");
-    RooPlot* MassPlot = MakePlot("MET", &theFit, data, configfilename, nbins, usePoissonError);    
+    RooPlot* MassPlot = MakePlot("met", &theFit, data, configfilename, nbins, usePoissonError);    
     
     MassPlot->SetAxisColor(1,"x");
     MassPlot->SetLabelColor(1, "X");
@@ -358,24 +417,71 @@ void PlotHiggsWW(int nbins) {
     char Cfilename[200];
 
     if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/MET-data.eps");
-      sprintf(Cfilename,"fit-plots/macro/MET-data.C");
+      sprintf(epsfilename,"fit-plots/eps/%s-met-data.eps",finalstate);
+      sprintf(Cfilename,"fit-plots/macro/%s-met-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/MET-HiggsOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/MET-HiggsOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-met-HiggsOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-met-HiggsOnly.C",finalstate);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/MET-WWOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/MET-WWOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-met-WWOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-met-WWOnly.C",finalstate);
     }
     if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/MET-ttbarOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/MET-ttbarOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-met-ttbarOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-met-ttbarOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("ZOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ZOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ZOnly.C",finalstate);
     }
     if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/MET-otherOnly.eps");
-      sprintf(Cfilename,"shapesHiggs/macro/MET-otherOnly.C");
+      sprintf(epsfilename,"shapesHiggs/eps/%s-met-otherOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-met-otherOnly.C",finalstate);
+    }
+    c->SaveAs(epsfilename);
+    c->SaveAs(Cfilename);
+  }
+
+  if(opts.getBoolVal("useMll")) {
+    TCanvas *c = new TCanvas("c","fitResult");
+    RooPlot* MassPlot = MakePlot("eleInvMass", &theFit, data, configfilename, nbins, usePoissonError);    
+    
+    MassPlot->SetAxisColor(1,"x");
+    MassPlot->SetLabelColor(1, "X");
+    MassPlot->SetLabelColor(1, "Y");
+    MassPlot->SetXTitle("m(l^{+}l^{-}) [GeV]");
+
+    MassPlot->SetYTitle("Events");
+    MassPlot->Draw();
+
+    char epsfilename[200];
+    char Cfilename[200];
+
+    if(opts.getBoolVal("AllFit")) {
+      sprintf(epsfilename,"fit-plots/eps/%s-mll-data.eps",finalstate);
+      sprintf(Cfilename,"fit-plots/macro/%s-mll-data.C",finalstate);
+    }
+    if(opts.getBoolVal("HiggsOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-mll-HiggsOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-mll-HiggsOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("WWOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-mll-WWOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-mll-WWOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("ttbarOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-mll-ttbarOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-mll-ttbarOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("ZOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ZOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ZOnly.C",finalstate);
+    }
+    if(opts.getBoolVal("otherOnlyFit")) {
+      sprintf(epsfilename,"shapesHiggs/eps/%s-mll-otherOnly.eps",finalstate);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-mll-otherOnly.C",finalstate);
     }
     c->SaveAs(epsfilename);
     c->SaveAs(Cfilename);
@@ -401,7 +507,7 @@ RooPlot *MakePlot(TString VarName, MLFit* theFit, RooDataSet* theData, const cha
   if(poissonError)
     theData->plotOn(plot);
   else 
-  theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2) );
+    theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2) );
 
   double Ns = theFit->getRealPar("N_sig")->getVal();
   double NWW = theFit->getRealPar("N_WW")->getVal();
@@ -418,50 +524,178 @@ RooPlot *MakePlot(TString VarName, MLFit* theFit, RooDataSet* theData, const cha
   thePdf->plotOn(plot, RooFit::LineColor(kBlack) );
 
 
-  if(opts.getBoolVal("AllFit")) {
-    // === plot (dashed) the ttbar component ===
-    MLFit theFit2;
+//   if(opts.getBoolVal("AllFit")) {
+//     // === plot (dashed) the WW component ===
+//     MLFit theFit2;
+    
+//     RooRealVar *jetcat = new RooRealVar("jetcat","jetcat",-1,1); // cut the -2 ( >1 jet )
+//     RooRealVar *met    = new RooRealVar("met","E_{T}^{miss}",0,200,"GeV");
+//     RooRealVar *deltaPhi = new RooRealVar("deltaPhi","#Delta#phi",0,180,"#deg");
+//     RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",20,200,"GeV");
+//     RooRealVar *eleInvMass = new RooRealVar("eleInvMass","m(l^{+}l^{-})",12,150,"GeV");
+//     RooRealVar *bTagImpPar = new RooRealVar("bTagImpPar","b-tag",-1001.,2.0);
+//     RooRealVar *weight = new RooRealVar("weight","weight",0,10000);
+    
+//     theFit2.AddFlatFileColumn(jetcat);
+//     theFit2.AddFlatFileColumn(met);
+//     theFit2.AddFlatFileColumn(deltaPhi);
+//     theFit2.AddFlatFileColumn(maxPtEle);
+//     theFit2.AddFlatFileColumn(eleInvMass);
+//     theFit2.AddFlatFileColumn(bTagImpPar);
+//     theFit2.AddFlatFileColumn(weight);
 
-    // define the structure of the dataset
-    RooRealVar *jetCat = new RooRealVar("jetCat","jetCat",-2,2);
-    RooRealVar *MET = new RooRealVar("MET","MET",30,200,"GeV");
-    RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#circ");
-    RooRealVar *minPt = new RooRealVar("minPt","minPt",10,200,"GeV");
-    RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
-    RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
-    RooRealVar *weight = new RooRealVar("weight","weight",0,100);
+//     // define a fit model
+//     theFit2.addModel("WWFit", "WW only component fit");
 
-    theFit2.AddFlatFileColumn(jetCat);
-    theFit2.AddFlatFileColumn(MET);
-    theFit2.AddFlatFileColumn(deltaPhi);
-    theFit2.AddFlatFileColumn(minPt);
-    theFit2.AddFlatFileColumn(dxyEVT);
-    theFit2.AddFlatFileColumn(dszEVT);
-    theFit2.AddFlatFileColumn(weight);
+//     // define species in the 0-jet bin
+//     theFit2.addSpecies("WWFit", "WW",  "WW Component");
+//     theFit2.addPdfWName("WWFit", "WW", "deltaPhi", "Cruijff",    "WW_deltaPhi");
+//     theFit2.addPdfWName("WWFit", "WW", "maxPt",  "Cruijff", "WW_maxPt");
+//     const int nbins = 8;
+//     double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
+//     TAxis* limits = new TAxis(nbins,limitarray) ;
+//     TList args ;
+//     args.Add(limits);
+//     theFit2.addPdfWName("WWFit", "WW", "met",  "BinnedPdf", args, "WW_met");
 
-    // define a fit model
-    theFit2.addModel("myFit", "Higgs to WW");
+//     RooAbsPdf *myPdf2 = theFit2.buildModel("WWFit");
+//     theFit2.initialize(configfilename);
 
-    // define species in the 0-jet bin
-    theFit2.addSpecies("myFit", "ttbar_0j",  "Zero Jet ttbar Component");
-    theFit2.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "poly2",    "ttbar_deltaPhi");
-    theFit2.addPdfWName("myFit", "ttbar_0j", "minPt",  "Cruijff", "ttbar_minPt");
-    const int nbins = 8;
-    double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
-    TAxis* limits = new TAxis(nbins,limitarray) ;
-    TList args ;
-    args.Add(limits);
-    theFit2.addPdfWName("myFit", "ttbar_0j", "MET",  "BinnedPdf", args, "ttbar_MET");
+//     myPdf2->plotOn(plot, RooFit::Normalization(NWW/(Ns+NWW+Nother+Nttbar)),RooFit::LineColor(kBlack),RooFit::LineStyle(kDashed));
 
-    RooAbsPdf *myPdf2 = theFit2.buildModel("ttbarFit");
-    theFit2.initialize(configfilename);
+//     // ===  plot (dashed) the ttbar component ===
+//     MLFit theFit3;
 
-    myPdf2->plotOn(plot, RooFit::Normalization(Nttbar/(Ns+NWW+Nother+Nttbar)),RooFit::LineColor(kBlack),RooFit::LineStyle(kDashed));
+//     theFit3.AddFlatFileColumn(jetCat);
+//     theFit3.AddFlatFileColumn(met);
+//     theFit3.AddFlatFileColumn(deltaPhi);
+//     theFit3.AddFlatFileColumn(maxPt);
+//     theFit3.AddFlatFileColumn(dxyEVT);
+//     theFit3.AddFlatFileColumn(dszEVT);
+//     theFit3.AddFlatFileColumn(weight);
 
-    // === etc etc... for the other components: still to do...
-  
-  }
+//     // define a fit model
+//     theFit3.addModel("ttbarFit", "ttbar only component fit");
+
+//     // define species in the 0-jet bin
+//     theFit3.addSpecies("ttbarFit", "ttbar",  "ttbar Component");
+//     theFit3.addPdfWName("ttbarFit", "ttbar", "deltaPhi", "Poly2",    "ttbar_deltaPhi");
+//     theFit3.addPdfWName("ttbarFit", "ttbar", "maxPt",  "Cruijff", "ttbar_maxPt");
+//     const int nbins = 8;
+//     double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
+//     TAxis* limits = new TAxis(nbins,limitarray) ;
+//     TList args ;
+//     args.Add(limits);
+//     theFit3.addPdfWName("ttbarFit", "ttbar", "met",  "BinnedPdf", args, "ttbar_met");
+
+//     RooAbsPdf *myPdf3 = theFit3.buildModel("ttbarFit");
+//     theFit3.initialize(configfilename);
+
+//     myPdf3->plotOn(plot, RooFit::Normalization(Nttbar/(Ns+NWW+Nother+Nttbar)),RooFit::LineColor(kBlack),RooFit::LineStyle(kDotted));
+
+
+
+//     // ===  plot (dashed) the ttbar component ===
+//     MLFit theFit4;
+
+//     theFit4.AddFlatFileColumn(jetCat);
+//     theFit4.AddFlatFileColumn(met);
+//     theFit4.AddFlatFileColumn(deltaPhi);
+//     theFit4.AddFlatFileColumn(maxPt);
+//     theFit4.AddFlatFileColumn(dxyEVT);
+//     theFit4.AddFlatFileColumn(dszEVT);
+//     theFit4.AddFlatFileColumn(weight);
+
+//     // define a fit model
+//     theFit4.addModel("otherFit", "other only component fit");
+
+//     // define species in the 0-jet bin
+//     theFit4.addSpecies("otherFit", "other",  "other Component");
+//     theFit4.addPdfWName("otherFit", "other", "deltaPhi", "DoubleGaussian",    "other_deltaPhi");
+//     theFit4.addPdfWName("otherFit", "other", "maxPt",  "Cruijff", "other_maxPt");
+//     const int nbins = 8;
+//     double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
+//     TAxis* limits = new TAxis(nbins,limitarray) ;
+//     TList args ;
+//     args.Add(limits);
+//     theFit4.addPdfWName("otherFit", "other", "met",  "BinnedPdf", args, "other_met");
+
+//     RooAbsPdf *myPdf4 = theFit4.buildModel("otherFit");
+//     theFit4.initialize(configfilename);
+
+//     myPdf4->plotOn(plot, RooFit::Normalization(Nother/(Ns+NWW+Nother+Nttbar)),RooFit::LineColor(kBlack),RooFit::LineStyle(kDotted));
+
+//   }
 
   return plot;
 }
 
+
+
+void sPlotHiggsWW() {
+
+  // Various fit options...
+  MLOptions opts = GetDefaultOptions();
+  opts.setBoolVal("useDeltaPhi",kFALSE);
+
+  myFit();
+
+  // Load the data
+  char datasetname[200];
+  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"datasets/Higgs_21X_data.root");
+  else sprintf(datasetname,"datasets/hww_2m_Datasets_21X.root ");
+  char treename[100];
+  if(opts.getBoolVal("AllFit")) sprintf(treename,"theData");
+  theFit.addDataSetFromRootFile(treename, treename, datasetname);
+
+  RooDataSet *data = theFit.getDataSet(treename);
+
+  // build the fit likelihood
+  RooAbsPdf *myPdf = theFit.buildModel("myFit");
+
+  // Initialize the fit...
+  char configfilename[200];
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-finalstate0-160GeV.config");
+  theFit.initialize(configfilename);
+
+  
+  // fix all parameters, float the yields and fit
+  theFit._parameterSet.selectByName("*")->setAttribAll("Constant",kTRUE);
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("N_sig")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("N_WW")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("N_ttbar")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("N_other")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("eff_sig")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("eff_WW")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("eff_ttbar")))->setConstant(kFALSE) ;
+  (static_cast<RooRealVar*>(theFit._parameterSet.find("eff_other")))->setConstant(kFALSE) ;
+
+  RooFitResult *fitres =  myPdf->fitTo(*data,theFit.getNoNormVars("myFit"),"MHTER");
+  fitres->Print("V");
+
+  // add appropriate column to dataset
+  RooArgList yieldsList;
+  cout << "Fit fraclist: " << endl;
+  theFit._fracList.Print("V");
+  cout << "Fit fraclist end" << endl;
+  yieldsList.add(*theFit._fracList.find("N_sig"));
+  yieldsList.add(*theFit._fracList.find("N_WW"));
+  yieldsList.add(*theFit._fracList.find("N_ttbar"));
+  yieldsList.add(*theFit._fracList.find("N_other"));
+  yieldsList.add(*theFit._fracList.find("N_sig"));
+  yieldsList.add(*theFit._fracList.find("N_WW_1j"));
+  yieldsList.add(*theFit._fracList.find("N_ttbar_1j"));
+  yieldsList.add(*theFit._fracList.find("N_other_1j"));
+
+  cout << "Macro" << endl;
+  yieldsList.Print();
+  cout << "End macro" << endl;
+
+  RooDataSet* dsnew = MLSPlot::addSWeightToData((RooSimultaneous*)(myPdf), yieldsList, *data, 
+                                                theFit.getNoNormVars("myFit")) ;
+
+  TFile sPlots("sPlots-noDeltaPhi-finalstate0-mass160.root","recreate");
+  dsnew->Write();
+  sPlots.Close();
+
+}
