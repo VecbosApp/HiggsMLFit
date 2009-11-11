@@ -1,10 +1,7 @@
-int higgsmass = 160; // GeV
-void SetHiggsMass(int m) {
-  higgsmass=m;
-}
-
+// Configuration done by perl script
 enum { ee=0, mm=1, em=2 };
 int finalstate = ee;
+
 void SetFinalState(int f) {
   finalstate=f;
 }
@@ -15,13 +12,14 @@ MLOptions GetDefaultOptions() {
   MLOptions opts;
   // Fit configuration
   opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
-  opts.addBoolOption("useMinPt",        "Use pT of the slowest leptons", kTRUE);
+  opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
   opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
-  opts.addBoolOption("useDxyzEVT",      "Use jet impact parameters",     kTRUE);
+  opts.addBoolOption("useMll",          "Use Mll",                       kTRUE);
+  opts.addBoolOption("useBtag",         "Use jet impact parameters",     kFALSE);
   // smearing options for PDFs systematics
   opts.addBoolOption("smearDeltaPhi",  "apply Gaussian smearing to deltaphi parameters", kFALSE);
   opts.addBoolOption("smearMinPt",     "apply Gaussian smearing to minPt parameters",    kFALSE);
-  opts.addBoolOption("smearMET",       "apply Gaussian smearing to MET parameters",      kTRUE);
+  opts.addBoolOption("smearMET",       "apply Gaussian smearing to MET parameters",      kFALSE);
   opts.addBoolOption("smearEff",       "apply Gaussian smearing to jet bin fraction",    kFALSE);
 
   return opts;
@@ -45,128 +43,159 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
 
   MLFit theFit;
 
-  RooRealVar *jetCat = new RooRealVar("jetCat","jetCat",-2,2);
-  RooRealVar *MET = new RooRealVar("MET","MET",30,200,"GeV");
-  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","deltaPhi",0,180,"#circ");
-  RooRealVar *minPt = new RooRealVar("minPt","minPt",10,200,"GeV");
-  RooRealVar *dxyEVT = new RooRealVar("dxyEVT","dxyEVT",0,5000,"#mum");
-  RooRealVar *dszEVT = new RooRealVar("dszEVT","dszEVT",0,5000,"#mum");
+  // Various fit options...
+  MLOptions opts = GetDefaultOptions();
 
-  theFit.AddFlatFileColumn(jetCat);
-  theFit.AddFlatFileColumn(MET);
+  RooRealVar *jetcat = new RooRealVar("jetcat","jetcat",-1,1); // cut the -2 ( >1 jet )
+  RooRealVar *met    = new RooRealVar("met","E_{T}^{miss}",0,200,"GeV");
+  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","#Delta#phi",0,180,"#deg");
+  RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",20,200,"GeV");
+  RooRealVar *eleInvMass = new RooRealVar("eleInvMass","m(l^{+}l^{-})",12,150,"GeV");
+  RooRealVar *bTagImpPar = new RooRealVar("bTagImpPar","b-tag",-1001.,2.0);
+  RooRealVar *weight = new RooRealVar("weight","weight",-100,10000);
+
+  theFit.AddFlatFileColumn(jetcat);
+  theFit.AddFlatFileColumn(met);
   theFit.AddFlatFileColumn(deltaPhi);
-  theFit.AddFlatFileColumn(minPt);
-  theFit.AddFlatFileColumn(dxyEVT);
-  theFit.AddFlatFileColumn(dszEVT);
+  theFit.AddFlatFileColumn(maxPtEle);
+  if (finalstate != em) theFit.AddFlatFileColumn(eleInvMass);
+  theFit.AddFlatFileColumn(bTagImpPar);
+  theFit.AddFlatFileColumn(weight);
 
   // define a fit model
   theFit.addModel("myFit", "Higgs to WW");
 
   // define species in the 0-jet bin
   theFit.addSpecies("myFit", "sig_0j",    "Zero Jet Signal Component");
-  theFit.addSpecies("myFit", "WW_0j",     "Zero Jet Signal Component");
+  theFit.addSpecies("myFit", "WW_0j",     "Zero Jet WW Component");
   theFit.addSpecies("myFit", "ttbar_0j",  "Zero Jet ttbar Component");
+  if (finalstate != em) theFit.addSpecies("myFit", "Z_0j",      "Zero Jet Z Component");
   theFit.addSpecies("myFit", "other_0j",  "Zero Jet Other Bkgs Component");
 
   // define species in the 1-jet bin
   theFit.addSpecies("myFit", "sig_1j",    "One Jet Signal Component");
-  theFit.addSpecies("myFit", "WW_1j",     "One Jet Signal Component");
+  theFit.addSpecies("myFit", "WW_1j",     "One Jet WW Component");
   theFit.addSpecies("myFit", "ttbar_1j",  "One Jet ttbar Component");
+  if (finalstate != em) theFit.addSpecies("myFit", "Z_1j",      "One Jet Z Component");
   theFit.addSpecies("myFit", "other_1j",  "One Jet Other Bkgs Component");
 
   theFit.fitWithEff("sig_0j",   "sig_1j",   "sig");
   theFit.fitWithEff("WW_0j",    "WW_1j",    "WW");
   theFit.fitWithEff("ttbar_0j", "ttbar_1j", "ttbar");
+  if (finalstate != em) theFit.fitWithEff("Z_0j",     "Z_1j",     "Z");
   theFit.fitWithEff("other_0j", "other_1j", "other");
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "CrystalCruijff",  "sig_deltaPhi");
-    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Cruijff",    "WW_deltaPhi");
-    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",    "ttbar_deltaPhi");
-    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "DoubleGaussian", "other_deltaPhi");
+    theFit.addPdfWName("myFit", "sig_0j",   "deltaPhi", "Cruijff",         "sig_deltaPhi");
+    theFit.addPdfWName("myFit", "WW_0j",    "deltaPhi", "Cruijff",         "WW_deltaPhi");
+    theFit.addPdfWName("myFit", "ttbar_0j", "deltaPhi", "Poly2",           "ttbar_deltaPhi");
+    if (finalstate != em) theFit.addPdfWName("myFit", "Z_0j",     "deltaPhi", "Cruijff",         "Z_deltaPhi");
+    theFit.addPdfWName("myFit", "other_0j", "deltaPhi", "Cruijff",         "other_deltaPhi");
 
     theFit.addPdfCopy("myFit", "sig_1j",   "deltaPhi", "sig_0j");
     theFit.addPdfCopy("myFit", "WW_1j",    "deltaPhi", "WW_0j");
     theFit.addPdfCopy("myFit", "ttbar_1j", "deltaPhi", "ttbar_0j");
+    if (finalstate != em) theFit.addPdfCopy("myFit", "Z_1j",     "deltaPhi", "Z_0j");
     theFit.addPdfCopy("myFit", "other_1j", "deltaPhi", "other_0j");
   }
 
-  // minPt PDF
-  if(opts.getBoolVal("useMinPt")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "minPt",  "Cruijff", "sig_minPt");
-    theFit.addPdfWName("myFit", "WW_0j",    "minPt",  "Cruijff", "WW_minPt");
-    theFit.addPdfWName("myFit", "ttbar_0j", "minPt",  "Cruijff", "ttbar_minPt");
-    theFit.addPdfWName("myFit", "other_0j", "minPt",  "Cruijff", "other_minPt");
+  // maxPt PDF
+  if(opts.getBoolVal("useMaxPt")) {
+    theFit.addPdfWName("myFit", "sig_0j",   "maxPtEle",  "Cruijff", "sig_maxPt");
+    theFit.addPdfWName("myFit", "WW_0j",    "maxPtEle",  "Cruijff", "WW_maxPt");
+    theFit.addPdfWName("myFit", "ttbar_0j", "maxPtEle",  "Cruijff", "ttbar_maxPt");
+    if (finalstate != em) theFit.addPdfWName("myFit", "Z_0j",     "maxPtEle",  "Cruijff", "Z_maxPt");
+    theFit.addPdfWName("myFit", "other_0j", "maxPtEle",  "Cruijff", "other_maxPt");
 
-    theFit.addPdfCopy("myFit", "sig_1j",   "minPt", "sig_0j");
-    theFit.addPdfCopy("myFit", "WW_1j",    "minPt", "WW_0j");
-    theFit.addPdfCopy("myFit", "ttbar_1j", "minPt", "ttbar_0j");
-    theFit.addPdfCopy("myFit", "other_1j", "minPt", "other_0j");
+    theFit.addPdfCopy("myFit", "sig_1j",   "maxPtEle", "sig_0j");
+    theFit.addPdfCopy("myFit", "WW_1j",    "maxPtEle", "WW_0j");
+    theFit.addPdfCopy("myFit", "ttbar_1j", "maxPtEle", "ttbar_0j");
+    if (finalstate != em) theFit.addPdfCopy("myFit", "Z_1j",     "maxPtEle", "Z_0j");
+    theFit.addPdfCopy("myFit", "other_1j", "maxPtEle", "other_0j");
   }
 
-  // MET PDF
-  // use histogram PDF to limit sensitivity to the tail
-  const int nbins = 8;
-  double limitarray[] = {30.0,40.0,50.0,60.0,70.0,80.0,100.0,150.0,200.0};
+  // mll PDF
+  if(opts.getBoolVal("useMll")) {
+    if (finalstate != em) {
+      theFit.addPdfWName("myFit", "sig_0j",   "eleInvMass",  "Cruijff", "sig_mll");
+      theFit.addPdfWName("myFit", "WW_0j",    "eleInvMass",  "DoubleGaussian", "WW_mll");
+      theFit.addPdfWName("myFit", "ttbar_0j", "eleInvMass",  "Poly2", "ttbar_mll");
+      if (finalstate != em) theFit.addPdfWName("myFit", "Z_0j",     "eleInvMass",  "Cruijff", "Z_mll");
+      theFit.addPdfWName("myFit", "other_0j", "eleInvMass",  "Cruijff", "other_mll");
 
-  TAxis* limits = new TAxis(nbins,limitarray) ;
-  TList args ;
-  args.Add(limits);
+      theFit.addPdfCopy("myFit", "sig_1j",   "eleInvMass", "sig_0j");
+      theFit.addPdfCopy("myFit", "WW_1j",    "eleInvMass", "WW_0j");
+      theFit.addPdfCopy("myFit", "ttbar_1j", "eleInvMass", "ttbar_0j");
+      if (finalstate != em) theFit.addPdfCopy("myFit", "Z_1j",     "eleInvMass", "Z_0j");
+      theFit.addPdfCopy("myFit", "other_1j", "eleInvMass", "other_0j");
+    }
+  }
 
   if(opts.getBoolVal("useMET")) {
-    theFit.addPdfWName("myFit", "sig_0j",   "MET",  "BinnedPdf", args, "sig_MET");
-    theFit.addPdfWName("myFit", "WW_0j",    "MET",  "BinnedPdf", args, "WW_MET");
-    theFit.addPdfWName("myFit", "ttbar_0j", "MET",  "BinnedPdf", args, "ttbar_MET");
-    theFit.addPdfWName("myFit", "other_0j", "MET",  "BinnedPdf", args, "other_MET");
+    theFit.addPdfWName("myFit", "sig_0j",   "met",  "Cruijff", "sig_met");
+    theFit.addPdfWName("myFit", "WW_0j",    "met",  "DoubleGaussian", "WW_met");
+    theFit.addPdfWName("myFit", "ttbar_0j", "met",  "Cruijff", "ttbar_met");
+    if (finalstate != em) theFit.addPdfWName("myFit", "Z_0j",     "met",  "Cruijff", "Z_met");
+    theFit.addPdfWName("myFit", "other_0j", "met",  "Cruijff", "other_met");
 
-    theFit.addPdfCopy("myFit", "sig_1j",   "MET", "sig_0j");
-    theFit.addPdfCopy("myFit", "WW_1j",    "MET", "WW_0j");
-    theFit.addPdfCopy("myFit", "ttbar_1j", "MET", "ttbar_0j");
-    theFit.addPdfCopy("myFit", "other_1j", "MET", "other_0j");
+    theFit.addPdfCopy("myFit", "sig_1j",   "met", "sig_0j");
+    theFit.addPdfCopy("myFit", "WW_1j",    "met", "WW_0j");
+    theFit.addPdfCopy("myFit", "ttbar_1j", "met", "ttbar_0j");
+    if (finalstate != em) theFit.addPdfCopy("myFit", "Z_1j",     "met", "Z_0j");
+    theFit.addPdfCopy("myFit", "other_1j", "met", "other_0j");
   }
 
   // jet impact parameters: used only in the 1-jet bin
-  if(opts.getBoolVal("useDxyzEVT")) {
+  const int nbinsBtag = 8;
+  double limitarrayBtag[] = {0.,0.05,0.1,0.15,0.2,0.25,0.40,1.0,2.0};
+
+  TAxis* limitsBtag = new TAxis(nbinsBtag,limitarrayBtag) ;
+  TList argsBtag ;
+  argsBtag.Add(limitsBtag);
+
+  if(opts.getBoolVal("useBtag")) {
     
-    MLStrList obs("dxyEVT","dszEVT");
-    MLStrList sig_args("datasets/binning.txt","datasets/dxy_dsz-data-sig.txt");
-    MLStrList WW_args("datasets/binning.txt","datasets/dxy_dsz-data-WW.txt");
-    MLStrList ttbar_args("datasets/binning.txt","datasets/dxy_dsz-data-ttbar.txt");
-    MLStrList other_args("datasets/binning.txt","datasets/dxy_dsz-data-other.txt");
+    theFit.addPdfWName("myFit", "sig_0j",   "NoPdf",  "sig_0j_btag");
+    theFit.addPdfWName("myFit", "WW_0j",    "NoPdf",  "WW_0j_btag");
+    theFit.addPdfWName("myFit", "ttbar_0j", "NoPdf",  "ttbar_0j_btag");
+    if (finalstate != em) theFit.addPdfWName("myFit", "Z_0j",     "NoPdf",  "Z_0j_btag");
+    theFit.addPdfWName("myFit", "other_0j", "NoPdf",  "other_0j_btag");
 
-    theFit.addPdfWName("myFit", "sig_0j",   obs, "2DNoPdf", TList(), "sig_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "WW_0j",    obs, "2DNoPdf", TList(), "WW_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "ttbar_0j", obs, "2DNoPdf", TList(), "ttbar_0j_DxyzEVT");
-    theFit.addPdfWName("myFit", "other_0j", obs, "2DNoPdf", TList(), "other_0j_DxyzEVT");
-
-    theFit.addPdfWName("myFit", "sig_1j",   obs, "2DArbHist",  sig_args,   "sig_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "WW_1j",    obs, "2DArbHist",  WW_args,    "WW_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "ttbar_1j", obs, "2DArbHist",  ttbar_args, "ttbar_1j_DxyzEVT");
-    theFit.addPdfWName("myFit", "other_1j", obs, "2DArbHist",  other_args, "other_1j_DxyzEVT");
+    theFit.addPdfWName("myFit", "sig_1j",   "bTagImpPar", "BinnedPdf",  argsBtag, "sig_1j_btag");
+    theFit.addPdfWName("myFit", "WW_1j",    "bTagImpPar", "BinnedPdf",  argsBtag, "WW_1j_btag");
+    theFit.addPdfWName("myFit", "ttbar_1j", "bTagImpPar", "BinnedPdf",  argsBtag, "ttbar_1j_btag");
+    if (finalstate != em) theFit.addPdfWName("myFit", "Z_1j",     "bTagImpPar", "BinnedPdf",  argsBtag, "Z_1j_btag");
+    theFit.addPdfWName("myFit", "other_1j", "bTagImpPar", "BinnedPdf",  argsBtag, "other_1j_btag");
 
   }
 
   // jet bin category: val =  1 --> Njets = 0
   //                   val = -1 --> Njets = 1
-  theFit.addPdfWName("myFit", "sig_0j" ,   "jetCat",  "Poly2",  "Nj_0");
-  theFit.addPdfCopy("myFit",  "WW_0j",     "jetCat",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "ttbar_0j",  "jetCat",  "sig_0j");
-  theFit.addPdfCopy("myFit",  "other_0j",  "jetCat",  "sig_0j");
+  theFit.addPdfWName("myFit", "sig_0j" ,   "jetcat",  "Poly2",  "Nj_0");
+  theFit.addPdfCopy("myFit",  "WW_0j",     "jetcat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "ttbar_0j",  "jetcat",  "sig_0j");
+  if (finalstate != em) theFit.addPdfCopy("myFit",  "Z_0j",      "jetcat",  "sig_0j");
+  theFit.addPdfCopy("myFit",  "other_0j",  "jetcat",  "sig_0j");
                                             
-  theFit.addPdfWName("myFit", "sig_1j" ,   "jetCat",  "Poly2",  "Nj_1");
-  theFit.addPdfCopy("myFit",  "WW_1j",     "jetCat",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "ttbar_1j",  "jetCat",  "sig_1j");
-  theFit.addPdfCopy("myFit",  "other_1j",  "jetCat",  "sig_1j");
-
+  theFit.addPdfWName("myFit", "sig_1j" ,   "jetcat",  "Poly2",  "Nj_1");
+  theFit.addPdfCopy("myFit",  "WW_1j",     "jetcat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "ttbar_1j",  "jetcat",  "sig_1j");
+  if (finalstate != em) theFit.addPdfCopy("myFit",  "Z_1j",      "jetcat",  "sig_1j");
+  theFit.addPdfCopy("myFit",  "other_1j",  "jetcat",  "sig_1j");
 
 
   // build the fit likelihood
   RooAbsPdf *myPdf = theFit.buildModel("myFit");
 
   // Initialize the fit...
+  char charfinalstate[4];
+  if(finalstate==ee) sprintf(charfinalstate, "ee");
+  if(finalstate==mm) sprintf(charfinalstate, "mm");
+  if(finalstate==em) sprintf(charfinalstate, "em");
+
   char configfilename[200];
-  sprintf(configfilename, "toyconfig/toyHWW-finalstate%d-%dGeV.config",finalstate,higgsmass);
+  sprintf(configfilename, "toyconfig/toy-%s.config",charfinalstate);
 
   theFit.initialize(configfilename);
 
@@ -177,9 +206,11 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
     theFit.getRealPar("N_WW")->getVal()+
     theFit.getRealPar("N_ttbar")->getVal()+
     theFit.getRealPar("N_other")->getVal();
+  if (finalstate != em) ngen += theFit.getRealPar("N_Z")->getVal();
 
   // Generate...
-  RooArgSet genVars(theFit.getObsList(MLStrList("deltaPhi","MET","minPt","dxyEVT","dszEVT")));
+  RooArgSet genVars(theFit.getObsList(MLStrList("deltaPhi","met","maxPtEle")));
+  if (finalstate != em) genVars.add(theFit.getObsList(MLStrList("eleInvMass")));
   MLToyStudy theStudy(theGenerator, genVars, "E", "MTE", 0, theFit.getNoNormVars("myFit"));
   theStudy.addFit(*myPdf);
 
@@ -235,13 +266,13 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   theStudy.generateAndFit(nexp,ngen);
 
   char resultfilename[200];
-  if (outfile==0) sprintf(resultfilename,"toys/output/resultsHWW-finalstate%d-%dGeV.dat",finalstate,higgsmass);
+  if (outfile==0) sprintf(resultfilename,"toys/output/results-%s.dat",charfinalstate);
   else sprintf(resultfilename, outfile);
   theStudy._fitParData->write(resultfilename);
 
   char variablesfilename[200];
-  if (outfile==0) sprintf(variablesfilename,"toys/variablesHWW2e.root");
-  else sprintf(variablesfilename,"variablesHWW2e.root");
+  if (outfile==0) sprintf(variablesfilename,"toys/variablesHWW2l.root");
+  else sprintf(variablesfilename,"variablesHWW2l.root");
   TFile varfile(variablesfilename,"RECREATE");
 
   RooArgSet *variables = theStudy._fitParData->get();
@@ -250,6 +281,3 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   varfile.Close();
 
 }
-
-
-
