@@ -6,17 +6,17 @@ MLOptions GetDefaultOptions() {
   opts.addBoolOption("fitmm",           "H->WW->2m2nu", kFALSE);
   opts.addBoolOption("fitem",           "H->WW->2e2nu", kFALSE);
   opts.addBoolOption("weightedDataset", "use event weight instead of 1", kTRUE);
-  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kFALSE);
-  opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kFALSE);
-  opts.addBoolOption("useMET",          "Use MET",                       kFALSE);
-  opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
+  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
+  opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
+  opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
+  opts.addBoolOption("useMll",          "Use Mll",                       kTRUE);
   opts.addBoolOption("useBtag",         "Use jet impact parameters",     kFALSE);
   opts.addBoolOption("AllFit",          "Fit all species",        kFALSE);
-  opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kFALSE);
+  opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kTRUE);
   opts.addBoolOption("WWOnlyFit",       "Fit WW species only",    kFALSE);
   opts.addBoolOption("ttbarOnlyFit",    "Fit ttbar species only", kFALSE);
   opts.addBoolOption("ZOnlyFit",        "Fit Z species only",     kFALSE);
-  opts.addBoolOption("otherOnlyFit",    "Fit other species only", kTRUE);
+  opts.addBoolOption("otherOnlyFit",    "Fit other species only", kFALSE);
 
   return opts;
 }
@@ -52,19 +52,18 @@ void myFit() {
   theFit.addModel("myFit", "Higgs to WW");
 
   // define species in the 0-jet bin
-  theFit.addSpecies("myFit", "other_0j",  "Zero Jet Other Bkgs Component");
-  theFit.addSpecies("myFit", "sig_0j",    "Zero Jet Signal Component");
   theFit.addSpecies("myFit", "WW_0j",     "Zero Jet Sig Component");
+  theFit.addSpecies("myFit", "sig_0j",    "Zero Jet Signal Component");
   theFit.addSpecies("myFit", "ttbar_0j",  "Zero Jet ttbar Component");
   theFit.addSpecies("myFit", "Z_0j",      "Zero Jet Z Component");
-
+  theFit.addSpecies("myFit", "other_0j",  "Zero Jet Other Bkgs Component");
 
   // define species in the 1-jet bin
-  theFit.addSpecies("myFit", "other_1j",  "One Jet Other Bkgs Component");
   theFit.addSpecies("myFit", "sig_1j",    "One Jet Signal Component");
   theFit.addSpecies("myFit", "WW_1j",     "One Jet WW Component");
   theFit.addSpecies("myFit", "ttbar_1j",  "One Jet ttbar Component");
   theFit.addSpecies("myFit", "Z_1j",      "One Jet Z Component");
+  theFit.addSpecies("myFit", "other_1j",  "One Jet Other Bkgs Component");
 
   theFit.fitWithEff("sig_0j",   "sig_1j",   "sig");
   theFit.fitWithEff("WW_0j",    "WW_1j",    "WW");
