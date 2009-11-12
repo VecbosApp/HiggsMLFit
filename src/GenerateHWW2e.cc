@@ -2,10 +2,11 @@
 enum { ee=0, mm=1, em=2 };
 int finalstate = ee;
 
-void SetFinalState(int f) {
-  finalstate=f;
-}
+int use1jet = 0;
 
+void SetFinalState(int f) { finalstate=f; }
+
+void Use1Jet(int what) { use1jet = what; }
 
 // Set Fit Options
 MLOptions GetDefaultOptions() {
@@ -15,7 +16,8 @@ MLOptions GetDefaultOptions() {
   opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
   opts.addBoolOption("useMET",          "Use MET",                       kTRUE);
   opts.addBoolOption("useMll",          "Use Mll",                       kTRUE);
-  opts.addBoolOption("useBtag",         "Use jet impact parameters",     kFALSE);
+  if(use1jet) opts.addBoolOption("useBtag",         "Use jet impact parameters",     kTRUE);
+  else opts.addBoolOption("useBtag",         "Use jet impact parameters",     kFALSE);
   // smearing options for PDFs systematics
   opts.addBoolOption("smearDeltaPhi",  "apply Gaussian smearing to deltaphi parameters", kFALSE);
   opts.addBoolOption("smearMinPt",     "apply Gaussian smearing to minPt parameters",    kFALSE);
@@ -195,7 +197,8 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   if(finalstate==em) sprintf(charfinalstate, "em");
 
   char configfilename[200];
-  sprintf(configfilename, "toyconfig/toy-%s.config",charfinalstate);
+  if(!use1jet) sprintf(configfilename, "toyconfig/toy-%s.config",charfinalstate);
+  if(use1jet) sprintf(configfilename, "toyconfig/toy-1j-%s.config",charfinalstate);
 
   theFit.initialize(configfilename);
 
