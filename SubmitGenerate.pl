@@ -9,11 +9,10 @@
 use Getopt::Long;
 
 
-my ($massbin, $nexp, $njobs, $queue, $logdir, $prefix, $interactive, $command, $release, $disklocation);
+my ($nexp, $njobs, $queue, $logdir, $prefix, $interactive, $command, $release, $disklocation);
 
 # Defaults...
 
-$massbin=160;
 $nexp=1;
 $njobs=50;
 $queue='cmsshort';
@@ -21,13 +20,14 @@ $command='src/GenerateHiggsWW2e.cc';
 $interactive=0;
 $directory="toys/";
 $prefix="0";
+$use1jet=0;
 
 if ($#ARGV < 1) {
     print <<ENDOFTEXT;
 usage: SubmitGenerate.pl [OPTIONS]
 
- -b, --massbin=INTEGER
-       Higgs mass bin to run.  Default=$massbin
+ -b, --use1jet=INTEGER
+       Use 1 jet bin.  Default=0 (false)
 
  -n, --nexp=INTEGER
        Number of experiments to run.  Default=$nexp
@@ -65,7 +65,7 @@ ENDOFTEXT
 }
 
 GetOptions(
-	   "massbin|b=i"    => \$massbin,
+	   "use1jet|b=i"   => \$use1jet,
 	   "nexp|n=i"      => \$nexp,
 	   "jobs|j=i"      => \$njobs,
 	   "queue|q=s"     => \$queue,
@@ -130,7 +130,7 @@ Queue:                      $queue
 Release:                    $release
 ENDOUT
     ;    
-my $results=`ls -1 $outputdir/results-finalstate$prefix-mass$massbin-[0-9]*.dat 2> /dev/null`;
+my $results=`ls -1 $outputdir/results-finalstate$prefix-[0-9]*.dat 2> /dev/null`;
 
 $currDir=`pwd`;
 chomp $currDir;
@@ -139,9 +139,9 @@ chomp $currDir;
 for (my $i = 1; $i <= $njobs; $i++){
 
     print "Running job $i out of $njobs\n";
-    my $logfile = "$logdir/results-finalstate$prefix-mass$massbin-$i.log";
-    my $iscript = "$scriptdir/script-finalstate$prefix-mass$massbin-$i.csh";
-    my $outfile = "$outputdir/results-finalstate$prefix-mass$massbin-$i.dat"; 
+    my $logfile = "$logdir/results-finalstate$prefix-$i.log";
+    my $iscript = "$scriptdir/script-finalstate$prefix-$i.csh";
+    my $outfile = "$outputdir/results-finalstate$prefix-$i.dat"; 
     my $iseed = int(rand(65536)+$i);
     open(SCRIPTFILE,">$iscript");
     print SCRIPTFILE "\#\!/bin/tcsh\n\n";
@@ -154,8 +154,8 @@ for (my $i = 1; $i <= $njobs; $i++){
     print SCRIPTFILE "mkdir toys\n";
     print SCRIPTFILE "root -b src/RooLogon.C <<EOF\n";
     print SCRIPTFILE ".L $command\n";
-    print SCRIPTFILE "SetHiggsMass($massbin)\n";
     print SCRIPTFILE "SetFinalState($prefix)\n";
+    print SCRIPTFILE "Use1Jet($use1jet)\n";
     print SCRIPTFILE "Generate($nExpPerJob,$iseed,\"$outfile\")\n";
     print SCRIPTFILE ".q\n";
     print SCRIPTFILE "EOF\n";
@@ -165,7 +165,7 @@ for (my $i = 1; $i <= $njobs; $i++){
     if ($interactive==1) {
 	system("source $iscript");
     } else {
-	system("bsub -q $queue -o $logfile -J fs$prefix-mass$massbin-$i < $iscript");
+	system("bsub -q $queue -o $logfile -J fs$prefix-$i < $iscript");
     }
 }
 
