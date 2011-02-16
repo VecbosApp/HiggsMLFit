@@ -29,6 +29,7 @@ MLOptions GetDefaultOptions() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 MLFit theFit;
+MLFit *theFit2[10000];
 
 void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
 
@@ -132,16 +133,16 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   MLToyStudy theStudy(theGenerator, genVars, "E", "MTE", 0, theFit.getNoNormVars("myFit"));
   if(opts.getBoolVal("MCT")) {
     if(finalstate==ee) {
-      theStudy.addMockSpecies("sig","datasets/H160_ee.root","T1");
-      theStudy.addMockSpecies("WW","datasets/WW_ee.root","T1");
+      theStudy.addMockSpecies("sig","results/mockdatasets/H160_ee.root","T1");
+      theStudy.addMockSpecies("WW","results/mockdatasets/WW_ee.root","T1");
     }
     if(finalstate==mm) {
-      theStudy.addMockSpecies("sig","datasets/H160_mm.root","T1");
-      theStudy.addMockSpecies("WW","datasets/WW_mm.root","T1");
+      theStudy.addMockSpecies("sig","results/mockdatasets/H160_mm.root","T1");
+      theStudy.addMockSpecies("WW","results/mockdatasets/WW_mm.root","T1");
     }
     if(finalstate==em) {
-      theStudy.addMockSpecies("sig","datasets/H160_em.root","T1");
-      theStudy.addMockSpecies("WW","datasets/WW_em.root","T1");
+      theStudy.addMockSpecies("sig","results/mockdatasets/H160_em.root","T1");
+      theStudy.addMockSpecies("WW","results/mockdatasets/WW_em.root","T1");
     }
   }
 
@@ -151,9 +152,9 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
 
   if(opts.getBoolVal("fitZeroSig")) {
 
-    getSecondFit();
+    getSecondFit(0);
     // build the fit likelihood
-    myPdf2 = theFit2.buildModel("myFit2");
+    myPdf2 = theFit2[0]->buildModel("myFit0");
     
     // Initialize the fit...
     char charfinalstate[4];
@@ -165,12 +166,12 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
     if(!use1jet) sprintf(configfilename, "toyconfig/toy-%s-NoMllTightId-mH%d.config",charfinalstate,higgsmass);
     if(use1jet) sprintf(configfilename, "toyconfig/toy-1j-%s-NoMllTightId-mH%d.config",charfinalstate,higgsmass);
 
-    theFit2.initialize(configfilename);
+    theFit2[0]->initialize(configfilename);
   }
 
   if(opts.getBoolVal("fitZeroSig")) {
-    theFit2.getRealPar("N_sig")->setVal(0.);
-    theFit2.getRealPar("N_sig")->setConstant(kTRUE);
+    theFit2[0]->getRealPar("N_sig")->setVal(0.);
+    theFit2[0]->getRealPar("N_sig")->setConstant(kTRUE);
   }
 
   if( myPdf2 !=0 ) theStudy.addFit(*myPdf2);
@@ -191,5 +192,90 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   variables->setName("variables");
   variables->Write();
   varfile.Close();
+
+}
+
+void getSecondFit(int ifit) {
+
+  MLFit *theIFit = new MLFit();
+  char fitname[200];
+  sprintf(fitname,"myFit%d",ifit);
+
+  // Various fit options...
+  MLOptions opts = GetDefaultOptions();
+
+  // define the structure of the dataset
+  RooRealVar *jetcat = new RooRealVar("jetcat","jetcat",-1,1); // cut the -2 ( >1 jet )
+  RooRealVar *projMet  = new RooRealVar("projMet","E_{T}^{miss}",0,250,"GeV");
+  //  RooRealVar *deltaPhi = new RooRealVar("deltaPhi","#Delta#phi",0,180,"#deg");
+  RooRealVar *expCosDphi = new RooRealVar("expCosDphi","e^{cos(#Delta#phi)}",exp(-1.),exp(1.));
+  RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",0,150,"GeV");
+  RooRealVar *eleInvMass = new RooRealVar("eleInvMass","m(l^{+}l^{-})",0,1e+30,"GeV");
+  RooRealVar *bTagImpPar = new RooRealVar("bTagImpPar","b-tag",-1000.,1e+30);
+  RooRealVar *weight = new RooRealVar("weight","weight",-100,10000);
+
+  theIFit->AddFlatFileColumn(jetcat);
+  theIFit->AddFlatFileColumn(projMet);
+  //  theIFit->AddFlatFileColumn(deltaPhi);
+  theIFit->AddFlatFileColumn(expCosDphi);
+  theIFit->AddFlatFileColumn(maxPtEle);
+//   theIFit->AddFlatFileColumn(eleInvMass);
+//   theIFit->AddFlatFileColumn(bTagImpPar);
+  theIFit->AddFlatFileColumn(weight);
+
+  // define a fit model
+  theIFit->addModel(fitname, "Higgs to WW");
+
+  // define species in the 0-jet bin
+  theIFit->addSpecies(fitname, "sig",    "Signal Component");
+  theIFit->addSpecies(fitname, "WW",     "Sig Component");
+  theIFit->addSpecies(fitname, "ttbar",  "ttbar Component");
+  theIFit->addSpecies(fitname, "other",  "Other Bkgs Component");
+
+  // deltaPhi PDF
+  if(opts.getBoolVal("useDeltaPhi")) {
+//     theIFit->addPdfWName(fitname, "sig",   "deltaPhi", "Cruijff",         "sig_deltaPhi");
+//     theIFit->addPdfWName(fitname, "WW",    "deltaPhi", "Cruijff",         "WW_deltaPhi");
+//     theIFit->addPdfWName(fitname, "ttbar", "deltaPhi", "Gaussian",        "ttbar_deltaPhi");
+//     theIFit->addPdfWName(fitname, "other", "deltaPhi", "Gaussian",        "other_deltaPhi");
+    
+    theIFit->addPdfWName(fitname, "sig",   "expCosDphi", "Cruijff",         "sig_deltaPhi");
+    theIFit->addPdfWName(fitname, "WW",    "expCosDphi", "Cruijff",         "WW_deltaPhi");
+    if(finalstate==mm) theIFit->addPdfWName(fitname, "ttbar", "expCosDphi", "Poly2",  "ttbar_deltaPhi");
+    else theIFit->addPdfWName(fitname, "ttbar", "expCosDphi", "Cruijff",  "ttbar_deltaPhi");
+    theIFit->addPdfWName(fitname, "other", "expCosDphi", "Expo",            "other_deltaPhi");
+  }
+
+  // maxPt PDF
+  if(opts.getBoolVal("useMaxPt")) {
+    theIFit->addPdfWName(fitname, "sig",   "maxPtEle",  "Cruijff", "sig_maxPt");
+    theIFit->addPdfWName(fitname, "WW",    "maxPtEle",  "Cruijff", "WW_maxPt");
+    theIFit->addPdfWName(fitname, "ttbar", "maxPtEle",  "Cruijff", "ttbar_maxPt");
+    theIFit->addPdfWName(fitname, "other", "maxPtEle",  "Cruijff", "other_maxPt");
+  }
+
+  if(opts.getBoolVal("usepMET")) {
+    theIFit->addPdfWName(fitname, "sig",   "projMet",  "Cruijff", "sig_projMet");
+    theIFit->addPdfWName(fitname, "WW",    "projMet",  "Cruijff", "WW_projMet");
+    if(finalstate!=ee) theIFit->addPdfWName(fitname, "ttbar", "projMet",  "Cruijff", "ttbar_projMet");
+    else theIFit->addPdfWName(fitname, "ttbar", "projMet",  "Gaussian", "ttbar_projMet");
+    theIFit->addPdfWName(fitname, "other", "projMet",  "Cruijff", "other_projMet");
+  }
+
+  // build the fit likelihood
+  RooAbsPdf *myPdf = theIFit->buildModel(fitname);
+
+  // Initialize the fit...
+  char charfinalstate[4];
+  if(finalstate==ee) sprintf(charfinalstate, "ee");
+  if(finalstate==mm) sprintf(charfinalstate, "mm");
+  if(finalstate==em) sprintf(charfinalstate, "em");
+
+  char configfilename[200];
+  if(!use1jet) sprintf(configfilename, "toyconfig/toy-%s-NoMllTightId-mH%d.config",charfinalstate,higgsmass);
+  if(use1jet) sprintf(configfilename, "toyconfig/toy-1j-%s-NoMllTightId-mH%d.config",charfinalstate,higgsmass);
+
+  theIFit->Print();
+  theFit2[ifit] = theIFit;
 
 }
