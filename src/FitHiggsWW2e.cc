@@ -1,15 +1,17 @@
+int Hmass = 160;
+
 // Set Fit Options
 MLOptions GetDefaultOptions() {
   MLOptions opts;
   // Fit configuration
   opts.addBoolOption("fitee",           "H->WW->2e2nu", kFALSE);
-  opts.addBoolOption("fitmm",           "H->WW->2m2nu", kFALSE);
-  opts.addBoolOption("fitem",           "H->WW->emu2nu", kTRUE);
+  opts.addBoolOption("fitmm",           "H->WW->2m2nu", kTRUE);
+  opts.addBoolOption("fitem",           "H->WW->emu2nu", kFALSE);
   opts.addBoolOption("weightedDataset", "use event weight instead of 1", kFALSE);
   opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
   opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
   opts.addBoolOption("usepMET",         "Use Projected MET",             kTRUE);
-  Opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
+  opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
   opts.addBoolOption("useBtag",         "Use BTag",                      kFALSE);
   opts.addBoolOption("AllFit",          "Fit all species",        kTRUE);
   opts.addBoolOption("HiggsOnlyFit",    "Fit Higgs species only", kFALSE);
@@ -32,11 +34,12 @@ void myFit() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
+  float maxPtEle_up = (Hmass<=250) ? 150 : 400;
+ 
   RooRealVar *jetcat = new RooRealVar("jetcat","jetcat",-1,1); // cut the -2 ( >1 jet )
   RooRealVar *projMet  = new RooRealVar("projMet","E_{T}^{miss}",0,250,"GeV");
   RooRealVar *deltaPhi = new RooRealVar("deltaPhi","#Delta#phi",0,180,"#deg");
-  //  RooRealVar *expCosDphi = new RooRealVar("expCosDphi","e^{cos(#Delta#phi)}",exp(-1.),exp(1.));
-  RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",0,150,"GeV");
+  RooRealVar *maxPtEle = new RooRealVar("maxPtEle","p_{T}^{max}",0,maxPtEle_up,"GeV");
   RooRealVar *eleInvMass = new RooRealVar("eleInvMass","m(l^{+}l^{-})",0,1e+30,"GeV");
   RooRealVar *bTagImpPar = new RooRealVar("bTagImpPar","b-tag",-1000.,1e+30);
   RooRealVar *weight = new RooRealVar("weight","weight",-100,10000);
@@ -44,10 +47,7 @@ void myFit() {
   theFit.AddFlatFileColumn(jetcat);
   theFit.AddFlatFileColumn(projMet);
   theFit.AddFlatFileColumn(deltaPhi);
-  //  theFit.AddFlatFileColumn(expCosDphi);
   theFit.AddFlatFileColumn(maxPtEle);
-//   theFit.AddFlatFileColumn(eleInvMass);
-//   theFit.AddFlatFileColumn(bTagImpPar);
   theFit.AddFlatFileColumn(weight);
 
   // define a fit model
@@ -59,43 +59,35 @@ void myFit() {
   theFit.addSpecies("myFit", "ttbar",  "ttbar Component");
   theFit.addSpecies("myFit", "other",  "Other Bkgs Component");
 
+  // final state suffix
+  char finalstate[5];
+  if(opts.getBoolVal("fitee")) sprintf(finalstate,"ee");
+  if(opts.getBoolVal("fitmm")) sprintf(finalstate,"mm");
+  if(opts.getBoolVal("fitem")) sprintf(finalstate,"em");
+
   // deltaPhi PDF
-  if(opts.getBoolVal("useDeltaPhi")) {
-    theFit.addPdfWName("myFit", "sig",   "deltaPhi", "Cruijff",         "sig_deltaPhi");
-    theFit.addPdfWName("myFit", "WW",    "deltaPhi", "Cruijff",         "WW_deltaPhi");
-    if(opts.getBoolVal("fitee")) theFit.addPdfWName("myFit", "ttbar", "deltaPhi", "Gaussian",        "ttbar_deltaPhi");
-    else theFit.addPdfWName("myFit", "ttbar", "deltaPhi", "Cruijff",        "ttbar_deltaPhi");
-    theFit.addPdfWName("myFit", "other", "deltaPhi", "Cruijff",         "other_deltaPhi");
-    
-//     theFit.addPdfWName("myFit", "sig",   "expCosDphi", "Cruijff",         "sig_deltaPhi");
-//     theFit.addPdfWName("myFit", "WW",    "expCosDphi", "Cruijff",         "WW_deltaPhi");
-//     if(opts.getBoolVal("fitmm")) theFit.addPdfWName("myFit", "ttbar", "expCosDphi", "Poly2",  "ttbar_deltaPhi");
-//     else theFit.addPdfWName("myFit", "ttbar", "expCosDphi", "Cruijff",  "ttbar_deltaPhi");
-//     theFit.addPdfWName("myFit", "other", "expCosDphi", "Expo",            "other_deltaPhi");
+  if(opts.getBoolVal("useDeltaPhi")) {    
+    theFit.addPdfWName("myFit", "sig",   "deltaPhi", "Cruijff", (TString("sig_")+TString(finalstate)+TString("_deltaPhi")).Data());
+    theFit.addPdfWName("myFit", "WW",    "deltaPhi", "Cruijff", (TString("WW_")+TString(finalstate)+TString("_deltaPhi")).Data());
+    if(opts.getBoolVal("fitee")) theFit.addPdfWName("myFit", "ttbar", "deltaPhi", "Gaussian", (TString("ttbar_")+TString(finalstate)+TString("_deltaPhi")).Data());
+    else theFit.addPdfWName("myFit", "ttbar", "deltaPhi", "Cruijff", (TString("ttbar_")+TString(finalstate)+TString("_deltaPhi")).Data());
+    theFit.addPdfWName("myFit", "other", "deltaPhi", "Cruijff", (TString("other_")+TString(finalstate)+TString("_deltaPhi")).Data());
   }
 
   // maxPt PDF
   if(opts.getBoolVal("useMaxPt")) {
-    theFit.addPdfWName("myFit", "sig",   "maxPtEle",  "Cruijff", "sig_maxPt");
-    theFit.addPdfWName("myFit", "WW",    "maxPtEle",  "Cruijff", "WW_maxPt");
-    theFit.addPdfWName("myFit", "ttbar", "maxPtEle",  "Cruijff", "ttbar_maxPt");
-    theFit.addPdfWName("myFit", "other", "maxPtEle",  "Cruijff", "other_maxPt");
-  }
-
-  // mll PDF
-  if(opts.getBoolVal("useMll")) {
-    theFit.addPdfWName("myFit", "sig",   "eleInvMass",  "Cruijff", "sig_mll");
-    theFit.addPdfWName("myFit", "WW",    "eleInvMass",  "DoubleGaussian", "WW_mll");
-    theFit.addPdfWName("myFit", "ttbar", "eleInvMass",  "Poly2", "ttbar_mll");
-    theFit.addPdfWName("myFit", "other", "eleInvMass",  "Cruijff", "other_mll");
+    theFit.addPdfWName("myFit", "sig",   "maxPtEle",  "Cruijff", (TString("sig_")+TString(finalstate)+TString("_maxPt")).Data());
+    theFit.addPdfWName("myFit", "WW",    "maxPtEle",  "Cruijff", (TString("WW_")+TString(finalstate)+TString("_maxPt")).Data());
+    theFit.addPdfWName("myFit", "ttbar", "maxPtEle",  "Cruijff", (TString("ttbar_")+TString(finalstate)+TString("_maxPt")).Data());
+    theFit.addPdfWName("myFit", "other", "maxPtEle",  "Cruijff", (TString("other_")+TString(finalstate)+TString("_maxPt")).Data());
   }
 
   if(opts.getBoolVal("usepMET")) {
-    theFit.addPdfWName("myFit", "sig",   "projMet",  "Cruijff", "sig_projMet");
-    theFit.addPdfWName("myFit", "WW",    "projMet",  "Cruijff", "WW_projMet");
-    if(!opts.getBoolVal("fitee")) theFit.addPdfWName("myFit", "ttbar", "projMet",  "Cruijff", "ttbar_projMet");
-    else theFit.addPdfWName("myFit", "ttbar", "projMet",  "Gaussian", "ttbar_projMet");
-    theFit.addPdfWName("myFit", "other", "projMet",  "Cruijff", "other_projMet");
+    theFit.addPdfWName("myFit", "sig",   "projMet",  "Cruijff", (TString("sig_")+TString(finalstate)+TString("_projMet")).Data());
+    theFit.addPdfWName("myFit", "WW",    "projMet",  "Cruijff", (TString("WW_")+TString(finalstate)+TString("_projMet")).Data());
+    if(!opts.getBoolVal("fitee")) theFit.addPdfWName("myFit", "ttbar", "projMet",  "Cruijff", (TString("ttbar_")+TString(finalstate)+TString("_projMet")).Data());
+    else theFit.addPdfWName("myFit", "ttbar", "projMet",  "Gaussian", (TString("ttbar_")+TString(finalstate)+TString("_projMet")).Data());
+    theFit.addPdfWName("myFit", "other", "projMet",  "Cruijff", (TString("other_")+TString(finalstate)+TString("_projMet")).Data());
   }
 
 }
@@ -111,7 +103,7 @@ void FitHiggsWW() {
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
-    // final state suffix
+  // final state suffix
   char finalstate[5];
   if(opts.getBoolVal("fitee")) sprintf(finalstate,"ee");
   if(opts.getBoolVal("fitmm")) sprintf(finalstate,"mm");
@@ -124,7 +116,7 @@ void FitHiggsWW() {
     if(opts.getBoolVal("fitmm")) sprintf(datasetname,"results_data/datasets/dataset_mu_mm.root");
     if(opts.getBoolVal("fitem")) sprintf(datasetname,"results_data/datasets/dataset_muAndEg_em.root");
   }
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H160_%s.root",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H%d_%s.root",Hmass,finalstate);
   if(opts.getBoolVal("WWOnlyFit")) sprintf(datasetname,"results/datasets/WW_%s.root",finalstate);
   if(opts.getBoolVal("ttbarOnlyFit")) sprintf(datasetname,"results/datasets/top_%s.root",finalstate);
   if(opts.getBoolVal("otherOnlyFit")) sprintf(datasetname,"results/datasets/others_%s.root",finalstate);
@@ -144,7 +136,11 @@ void FitHiggsWW() {
   // Initialize the fit...
   if(opts.getBoolVal("AllFit")) {
     char initconfigfile[200];
-    sprintf(initconfigfile,"fitconfig/fitHWW-%s-160GeV.config",finalstate);
+    // initalize backgrounds
+    sprintf(initconfigfile,"fitconfig/fitHWW-%s-%dGeV.config",finalstate,Hmass);
+    theFit.initialize(initconfigfile);
+    // initializing signal
+    sprintf(initconfigfile,"fitconfig/H%d-%s.config",Hmass,finalstate);
     theFit.initialize(initconfigfile);
   }
   if(opts.getBoolVal("HiggsOnlyFit")) theFit.initialize("shapesHiggs/config/HiggsWWFit-HiggsOnly.config");
@@ -157,16 +153,16 @@ void FitHiggsWW() {
   myPdf->getParameters(data)->selectByAttrib("Constant",kFALSE)->Print("V");
   
   RooFitResult *fitres =  myPdf->fitTo(*data,RooFit::ConditionalObservables(theFit.getNoNormVars("myFit")),RooFit::FitOptions("MHTER"),
-                                       RooFit::SumW2Error(kTRUE));
+                                       RooFit::SumW2Error(kTRUE),RooFit::NumCPU(4));
   fitres->Print("V");
 
   // write the config file corresponding to the fit minimum
   char configfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(configfilename, "fitres/fitMinimum-%s-160GeV.config",finalstate);
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-HiggsOnly.config",finalstate);
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-WWOnly.config",finalstate);
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-TTbarOnly.config",finalstate);
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-otherOnly.config",finalstate);
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename, "fitres/fitMinimum-%s-%dGeV.config",finalstate,Hmass);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-HiggsOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-WWOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-TTbarOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-otherOnly.config",Hmass,finalstate);
 
   theFit.writeConfigFile(configfilename);  
 
@@ -212,7 +208,7 @@ void PlotHiggsWW(int nbins) {
     if(opts.getBoolVal("fitmm")) sprintf(datasetname,"results_data/datasets/dataset_mu_mm.root");
     if(opts.getBoolVal("fitem")) sprintf(datasetname,"results_data/datasets/dataset_muAndEg_em.root");
   }
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H160_%s.root",finalstate);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(datasetname,"results/datasets/H%d_%s.root",Hmass,finalstate);
   if(opts.getBoolVal("WWOnlyFit")) sprintf(datasetname,"results/datasets/WW_%s.root",finalstate);
   if(opts.getBoolVal("ttbarOnlyFit")) sprintf(datasetname,"results/datasets/top_%s.root",finalstate);
   if(opts.getBoolVal("otherOnlyFit")) sprintf(datasetname,"results/datasets/others_%s.root",finalstate);
@@ -234,11 +230,11 @@ void PlotHiggsWW(int nbins) {
 
   // Initialize the fit...
   char configfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-%s-160GeV.config",finalstate);
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-HiggsOnly.config",finalstate);
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-WWOnly.config",finalstate);
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-TTbarOnly.config",finalstate);
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-otherOnly.config",finalstate);
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-%s-%dGeV.config",finalstate,Hmass);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-HiggsOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-WWOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-TTbarOnly.config",Hmass,finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-otherOnly.config",Hmass,finalstate);
   theFit.initialize(configfilename);
 
   if(opts.getBoolVal("useDeltaPhi")) {
@@ -265,8 +261,8 @@ void PlotHiggsWW(int nbins) {
       sprintf(Cfilename,"fit-plots/macro/%s-deltaPhi-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-HiggsOnly-160.C",finalstate);
+      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-HiggsOnly-%d.eps",finalstate,Hmass);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-HiggsOnly-%d.C",finalstate,Hmass);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
       sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-WWOnly.eps",finalstate);
@@ -307,8 +303,8 @@ void PlotHiggsWW(int nbins) {
       sprintf(Cfilename,"fit-plots/macro/%s-maxPt-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-HiggsOnly-160.C",finalstate);
+      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-HiggsOnly-%d.eps",finalstate,Hmass);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-HiggsOnly-%d.C",finalstate,Hmass);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
       sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-WWOnly.eps",finalstate);
@@ -348,8 +344,8 @@ void PlotHiggsWW(int nbins) {
       sprintf(Cfilename,"fit-plots/macro/%s-projMet-data.C",finalstate);
     }
     if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-HiggsOnly-160.C",finalstate);
+      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-HiggsOnly-%d.eps",finalstate,Hmass);
+      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-HiggsOnly-%d.C",finalstate,Hmass);
     }
     if(opts.getBoolVal("WWOnlyFit")) {
       sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-WWOnly.eps",finalstate);
@@ -482,11 +478,11 @@ void sPlotHiggsWW(char *useOpt) {
 
   // Initialize the fit...
   char configfilename[200];
-  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-%s-160GeV.config",finalstate);
-  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-HiggsOnly.config",finalstate);
-  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-WWOnly.config",finalstate);
-  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-TTbarOnly.config",finalstate);
-  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum160-%s-otherOnly.config",finalstate);
+  if(opts.getBoolVal("AllFit")) sprintf(configfilename,"fitres/fitMinimum-%s-%dGeV.config",finalstate,Hmass);
+  if(opts.getBoolVal("HiggsOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-HiggsOnly.config"Hmass,finalstate);
+  if(opts.getBoolVal("WWOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-WWOnly.config"Hmass,finalstate);
+  if(opts.getBoolVal("ttbarOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-TTbarOnly.config"Hmass,finalstate);
+  if(opts.getBoolVal("otherOnlyFit")) sprintf(configfilename, "fitres/fitMinimum%d-%s-otherOnly.config"Hmass,finalstate);
   theFit.initialize(configfilename);
   
   // fix all parameters, float the yields and fit
@@ -497,7 +493,7 @@ void sPlotHiggsWW(char *useOpt) {
   (static_cast<RooRealVar*>(theFit._parameterSet.find("N_other")))->setConstant(kFALSE) ;
 
   RooFitResult *fitres =  myPdf->fitTo(*data,RooFit::ConditionalObservables(theFit.getNoNormVars("myFit")),RooFit::FitOptions("MHTER"),
-                                       RooFit::SumW2Error(kTRUE));
+                                       RooFit::SumW2Error(kTRUE),RooFit::NumCPU(4));
   fitres->Print("V");
 
   // add appropriate column to dataset
