@@ -16,7 +16,7 @@ MLOptions GetDefaultOptions() {
   MLOptions opts;
   // Fit configuration
   opts.addBoolOption("weightedDataset", "use event weight instead of 1", kFALSE);
-  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kFALSE);
+  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
   opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
   opts.addBoolOption("usepMET",         "Use Projected MET",             kTRUE);
   opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
