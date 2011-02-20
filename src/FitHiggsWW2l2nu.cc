@@ -16,6 +16,7 @@ MLOptions GetDefaultOptions() {
   opts.addBoolOption("ttbarOnlyFit",    "Fit ttbar species only", kFALSE);
   opts.addBoolOption("otherOnlyFit",    "Fit other species only", kFALSE);
   opts.addBoolOption("doNLLPlot",       "do the NLL plot",  kFALSE);
+  opts.addBoolOption("includeSystematics", "add systemaic uncertainties in the minimization", kFALSE);
 
   return opts;
 }
@@ -70,15 +71,22 @@ void myFit() {
   theFit.addSpecies("myFit", "other_em",  "Other Bkgs Component to em");
 
   // efficiencies from the channel -> selected channel
-  RooRealVar *eff_ee = new RooRealVar("eff_ee","eff_ee",0.5,0,1);
-  RooRealVar *eff_mm = new RooRealVar("eff_mm","eff_mm",0.5,0,1);
-  RooRealVar *eff_em = new RooRealVar("eff_em","eff_em",0.5,0,1);
+  RooRealVar *eff_sig_ee = new RooRealVar("eff_sig_ee","eff_sig_ee",0.5,0,1); // eff means eff * BR(2l->2e)
+  RooRealVar *eff_sig_mm = new RooRealVar("eff_sig_mm","eff_sig_mm",0.5,0,1);
+  RooRealVar *eff_sig_em = new RooRealVar("eff_sig_em","eff_sig_em",0.5,0,1);
 
   // minimize respect Higgs xsec
   RooRealVar *N_sig_2l2nu = new RooRealVar("N_sig_2l2nu","N_sig_2l2nu",0);
-  theFit.defineYield("sig_ee","@0*@1",RooArgList(*N_sig_2l2nu,*eff_ee)); // eff means eff * BR(2l->2e)
-  theFit.defineYield("sig_mm","@0*@1",RooArgList(*N_sig_2l2nu,*eff_mm)); // " "
-  theFit.defineYield("sig_em","@0*@1",RooArgList(*N_sig_2l2nu,*eff_em)); // " "
+  theFit.defineYield("sig_ee","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_ee));
+  theFit.defineYield("sig_mm","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_mm));
+  theFit.defineYield("sig_em","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_em));
+
+  // also take W+W- background as correlated between the three final states 
+  // this makes a bias in both signal and WW: not clear why...
+//   RooRealVar *N_WW_2l2nu = new RooRealVar("N_WW_2l2nu","N_WW_2l2nu",0);
+//   theFit.defineYield("WW_ee","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_ee));
+//   theFit.defineYield("WW_mm","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_mm));
+//   theFit.defineYield("WW_em","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_em));
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
@@ -192,12 +200,33 @@ void FitHiggsWW() {
     theFit.initialize(initconfigfile);
   }
 
+  // the systematics
+  RooArgSet constraintPdfs;
+  if(opts.getBoolVal("includeSystematics")) {
+    RooRealVar *eff_sig_ee = theFit.getRealPar("eff_sig_ee");
+    RooRealVar eff_sig_ee_m("eff_sig_ee_m","eff_sig_ee_m",theFit.getRealPar("eff_sig_ee")->getVal());
+    RooRealVar eff_sig_ee_s("eff_sig_ee_s","eff_sig_ee_s",theFit.getRealPar("eff_sig_ee")->getError());
+    RooGaussian* eff_sig_ee_pdf = new RooGaussian("eff_sig_ee_pdf","eff_sig_ee_pdf", *eff_sig_ee, eff_sig_ee_m, eff_sig_ee_s);
+
+    RooRealVar *eff_sig_mm = theFit.getRealPar("eff_sig_mm");
+    RooRealVar eff_sig_mm_m("eff_sig_mm_m","eff_sig_mm_m",theFit.getRealPar("eff_sig_mm")->getVal());
+    RooRealVar eff_sig_mm_s("eff_sig_mm_s","eff_sig_mm_s",theFit.getRealPar("eff_sig_mm")->getError());
+    RooGaussian* eff_sig_mm_pdf = new RooGaussian("eff_sig_mm_pdf","eff_sig_mm_pdf", *eff_sig_mm, eff_sig_mm_m, eff_sig_mm_s);
+
+    RooRealVar *eff_sig_em = theFit.getRealPar("eff_sig_em");
+    RooRealVar eff_sig_em_m("eff_sig_em_m","eff_sig_em_m",theFit.getRealPar("eff_sig_em")->getVal());
+    RooRealVar eff_sig_em_s("eff_sig_em_s","eff_sig_em_s",theFit.getRealPar("eff_sig_em")->getError());
+    RooGaussian* eff_sig_em_pdf = new RooGaussian("eff_sig_em_pdf","eff_sig_em_pdf", *eff_sig_em, eff_sig_em_m, eff_sig_em_s);
+
+    constraintPdfs.add(RooArgSet(*eff_sig_ee_pdf,*eff_sig_mm_pdf,*eff_sig_em_pdf));
+  }
+
   // Print Fit configuration 
   myPdf->getParameters(data)->selectByAttrib("Constant",kTRUE)->Print("V");  
   myPdf->getParameters(data)->selectByAttrib("Constant",kFALSE)->Print("V");
   
   RooFitResult *fitres =  myPdf->fitTo(*data,RooFit::ConditionalObservables(theFit.getNoNormVars("myFit")),RooFit::FitOptions("MHTER"),
-                                       RooFit::SumW2Error(kTRUE),RooFit::NumCPU(4));
+                                       RooFit::SumW2Error(kTRUE),RooFit::NumCPU(4),RooFit::ExternalConstraints(constraintPdfs));
   fitres->Print("V");
 
   // write the config file corresponding to the fit minimum
