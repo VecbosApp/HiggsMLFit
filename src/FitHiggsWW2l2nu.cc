@@ -1,9 +1,11 @@
+int Hmass = 160;
+
 // Set Fit Options
 MLOptions GetDefaultOptions() {
   MLOptions opts;
   // Fit configuration
   opts.addBoolOption("weightedDataset", "use event weight instead of 1", kFALSE);
-  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kFALSE);
+  opts.addBoolOption("useDeltaPhi",     "Use leptons delta phi",         kTRUE);
   opts.addBoolOption("useMaxPt",        "Use pT of the hardest leptons", kTRUE);
   opts.addBoolOption("usepMET",         "Use Projected MET",             kTRUE);
   opts.addBoolOption("useMll",          "Use Mll",                       kFALSE);
@@ -115,19 +117,19 @@ void myFit() {
   }
 
   if(opts.getBoolVal("usepMET")) {
-    theFit.addPdfWName("myFit", "sig_ee",   "projMet",  "Cruijff", "sig_ee_projMet");
-    theFit.addPdfWName("myFit", "WW_ee",    "projMet",  "Cruijff", "WW_ee_projMet");
-    theFit.addPdfWName("myFit", "ttbar_ee", "projMet",  "Cruijff", "ttbar_ee_projMet");
-    theFit.addPdfWName("myFit", "other_ee", "projMet",  "Cruijff", "other_ee_projMet");
+    theFit.addPdfWName("myFit", "sig_ee",   "projMet",  "Cruijff",  "sig_ee_projMet");
+    theFit.addPdfWName("myFit", "WW_ee",    "projMet",  "Cruijff",  "WW_ee_projMet");
+    theFit.addPdfWName("myFit", "ttbar_ee", "projMet",  "Gaussian", "ttbar_ee_projMet");
+    theFit.addPdfWName("myFit", "other_ee", "projMet",  "Cruijff",  "other_ee_projMet");
 
     theFit.addPdfWName("myFit", "sig_mm",   "projMet",  "Cruijff",  "sig_mm_projMet");
     theFit.addPdfWName("myFit", "WW_mm",    "projMet",  "Cruijff",  "WW_mm_projMet");
-    theFit.addPdfWName("myFit", "ttbar_mm", "projMet",  "Gaussian", "ttbar_mm_projMet");
+    theFit.addPdfWName("myFit", "ttbar_mm", "projMet",  "Cruijff",  "ttbar_mm_projMet");
     theFit.addPdfWName("myFit", "other_mm", "projMet",  "Cruijff",  "other_mm_projMet");
 
     theFit.addPdfWName("myFit", "sig_em",   "projMet",  "Cruijff",  "sig_em_projMet");
     theFit.addPdfWName("myFit", "WW_em",    "projMet",  "Cruijff",  "WW_em_projMet");
-    theFit.addPdfWName("myFit", "ttbar_em", "projMet",  "Gaussian", "ttbar_em_projMet");
+    theFit.addPdfWName("myFit", "ttbar_em", "projMet",  "Cruijff",  "ttbar_em_projMet");
     theFit.addPdfWName("myFit", "other_em", "projMet",  "Cruijff",  "other_em_projMet");
   }
 
@@ -176,20 +178,36 @@ void FitHiggsWW() {
   RooAbsReal* nll = myPdf->createNLL(*data);
 
   // Initialize the fit...
-  if(opts.getBoolVal("AllFit")) theFit.initialize("fitconfig/fitHWW-ll-160GeV.config");
+  if(opts.getBoolVal("AllFit")) {
+    char initconfigfile[200];
+    // initalize backgrounds
+    sprintf(initconfigfile,"fitconfig/fitHWW-ll-%dGeV.config",Hmass);
+    theFit.initialize(initconfigfile);
+    // initializing signals
+    sprintf(initconfigfile,"fitconfig/H%d-ee.config",Hmass);
+    theFit.initialize(initconfigfile);
+    sprintf(initconfigfile,"fitconfig/H%d-mm.config",Hmass);
+    theFit.initialize(initconfigfile);
+    sprintf(initconfigfile,"fitconfig/H%d-em.config",Hmass);
+    theFit.initialize(initconfigfile);
+  }
 
   // Print Fit configuration 
   myPdf->getParameters(data)->selectByAttrib("Constant",kTRUE)->Print("V");  
   myPdf->getParameters(data)->selectByAttrib("Constant",kFALSE)->Print("V");
   
   RooFitResult *fitres =  myPdf->fitTo(*data,RooFit::ConditionalObservables(theFit.getNoNormVars("myFit")),RooFit::FitOptions("MHTER"),
-                                       RooFit::SumW2Error(kTRUE));
+                                       RooFit::SumW2Error(kTRUE),RooFit::NumCPU(4));
   fitres->Print("V");
 
   // write the config file corresponding to the fit minimum
-  theFit.writeConfigFile("fitres/fitMinimum-ll-160GeV.config");  
+  char configfile[300];
+  sprintf(configfile,"fitres/fitMinimum-ll-%dGeV.config",Hmass);
+  theFit.writeConfigFile(configfile);  
 
-  TFile *file = new TFile("fitres/fitresult-ll.root","recreate");
+  char fitresfile[200];
+  sprintf(fitresfile,"fitres/fitresult-ll-%dGeV.root",Hmass);
+  TFile *file = new TFile(fitresfile,"recreate");
   fitres->Write();
   file->Close();
 
@@ -237,130 +255,140 @@ void PlotHiggsWW(int nbins) {
 
 
   // Initialize the fit...
-  theFit.initialize("fitres/fitMinimum-ll-160GeV.config");
+  char configfilename[300];
+  sprintf(configfilename,"fitres/fitMinimum-ll-%dGeV.config",Hmass);
+  theFit.initialize(configfilename);
 
-  if(opts.getBoolVal("useDeltaPhi")) {
-    TCanvas *c = new TCanvas("c","fitResult",900,600);
-    RooPlot* MassPlot = MakePlot("expCosDphi", &theFit, data, configfilename, nbins, usePoissonError);    
+  for(int channel=0; channel<3; channel++) {
+
+    if(opts.getBoolVal("useDeltaPhi")) {
+      TCanvas *c = new TCanvas("c","fitResult",900,600);
+      RooPlot* MassPlot = MakePlot("deltaPhi", &theFit, data, configfilename, nbins, channel, usePoissonError);    
     
-    MassPlot->SetAxisColor(1,"x");
-    MassPlot->SetLabelColor(1, "X");
-    MassPlot->SetLabelColor(1, "Y");
-    MassPlot->SetXTitle("e^{cos(#Delta#phi)}");
+      MassPlot->SetAxisColor(1,"x");
+      MassPlot->SetLabelColor(1, "X");
+      MassPlot->SetLabelColor(1, "Y");
+      MassPlot->SetXTitle("#Delta#phi [deg]");
 
-    MassPlot->SetYTitle("Events");
-    MassPlot->Draw();
+      MassPlot->SetYTitle("Events");
+      MassPlot->Draw();
 
-    makeLegend();
+      makeLegend();
 
-    char epsfilename[200];
-    char Cfilename[200];
+      char epsfilename[200];
+      char Cfilename[200];
 
-    if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/%s-deltaPhi-data.eps",finalstate);
-      sprintf(Cfilename,"fit-plots/macro/%s-deltaPhi-data.C",finalstate);
+      char finalstate[10];
+      if(channel==0) sprintf(finalstate,"ee");
+      if(channel==1) sprintf(finalstate,"mm");
+      if(channel==2) sprintf(finalstate,"em");
+
+      if(opts.getBoolVal("AllFit")) {
+	sprintf(epsfilename,"fit-plots/eps/%s-deltaPhi-data.eps",finalstate);
+	sprintf(Cfilename,"fit-plots/macro/%s-deltaPhi-data.C",finalstate);
+      }
+      if(opts.getBoolVal("HiggsOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-HiggsOnly-%d.eps",finalstate,Hmass);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-HiggsOnly-%d.C",finalstate,Hmass);
+      }
+      if(opts.getBoolVal("WWOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-WWOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-WWOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("ttbarOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ttbarOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ttbarOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("otherOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-otherOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-otherOnly.C",finalstate);
+      }
+      c->SaveAs(epsfilename);
+      c->SaveAs(Cfilename);
     }
-    if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-HiggsOnly-160.C",finalstate);
-    }
-    if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-WWOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-WWOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-ttbarOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-ttbarOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-deltaPhi-otherOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-deltaPhi-otherOnly.C",finalstate);
-    }
-    c->SaveAs(epsfilename);
-    c->SaveAs(Cfilename);
-  }
 
 
-  if(opts.getBoolVal("useMaxPt")) {
-    TCanvas *c = new TCanvas("c","fitResult",900,600);
-    RooPlot* MassPlot = MakePlot("maxPtEle", &theFit, data, configfilename, nbins, usePoissonError);    
+    if(opts.getBoolVal("useMaxPt")) {
+      TCanvas *c = new TCanvas("c","fitResult",900,600);
+      RooPlot* MassPlot = MakePlot("maxPtEle", &theFit, data, configfilename, nbins, channel, usePoissonError);    
     
-    MassPlot->SetAxisColor(1,"x");
-    MassPlot->SetLabelColor(1, "X");
-    MassPlot->SetLabelColor(1, "Y");
-    MassPlot->SetXTitle("p_{T}^{max} [GeV]");
+      MassPlot->SetAxisColor(1,"x");
+      MassPlot->SetLabelColor(1, "X");
+      MassPlot->SetLabelColor(1, "Y");
+      MassPlot->SetXTitle("p_{T}^{max} [GeV]");
 
-    MassPlot->SetYTitle("Events");
-    MassPlot->Draw();
+      MassPlot->SetYTitle("Events");
+      MassPlot->Draw();
 
-    makeLegend();
+      makeLegend();
 
-    char epsfilename[200];
-    char Cfilename[200];
+      char epsfilename[200];
+      char Cfilename[200];
 
-    if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/%s-maxPt-data.eps",finalstate);
-      sprintf(Cfilename,"fit-plots/macro/%s-maxPt-data.C",finalstate);
+      if(opts.getBoolVal("AllFit")) {
+	sprintf(epsfilename,"fit-plots/eps/%s-maxPt-data.eps",finalstate);
+	sprintf(Cfilename,"fit-plots/macro/%s-maxPt-data.C",finalstate);
+      }
+      if(opts.getBoolVal("HiggsOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-HiggsOnly-%d.eps",finalstate,Hmass);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-HiggsOnly-%d.C",finalstate,Hmass);
+      }
+      if(opts.getBoolVal("WWOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-WWOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-WWOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("ttbarOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-ttbarOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-ttbarOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("otherOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-otherOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-otherOnly.C",finalstate);
+      }
+      c->SaveAs(epsfilename);
+      c->SaveAs(Cfilename);
     }
-    if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-HiggsOnly-160.C",finalstate);
-    }
-    if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-WWOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-WWOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-ttbarOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-ttbarOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-maxPt-otherOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-maxPt-otherOnly.C",finalstate);
-    }
-    c->SaveAs(epsfilename);
-    c->SaveAs(Cfilename);
-  }
 
-  if(opts.getBoolVal("usepMET")) {
-    TCanvas *c = new TCanvas("c","fitResult",900,600);
-    RooPlot* MassPlot = MakePlot("projMet", &theFit, data, configfilename, nbins, usePoissonError);    
+    if(opts.getBoolVal("usepMET")) {
+      TCanvas *c = new TCanvas("c","fitResult",900,600);
+      RooPlot* MassPlot = MakePlot("projMet", &theFit, data, configfilename, nbins, channel, usePoissonError);    
     
-    MassPlot->SetAxisColor(1,"x");
-    MassPlot->SetLabelColor(1, "X");
-    MassPlot->SetLabelColor(1, "Y");
-    MassPlot->SetXTitle("proj. missing E_{T} [GeV]");
+      MassPlot->SetAxisColor(1,"x");
+      MassPlot->SetLabelColor(1, "X");
+      MassPlot->SetLabelColor(1, "Y");
+      MassPlot->SetXTitle("proj. missing E_{T} [GeV]");
 
-    MassPlot->SetYTitle("Events");
-    MassPlot->Draw();
+      MassPlot->SetYTitle("Events");
+      MassPlot->Draw();
 
-    makeLegend();
+      makeLegend();
 
-    char epsfilename[200];
-    char Cfilename[200];
+      char epsfilename[200];
+      char Cfilename[200];
 
-    if(opts.getBoolVal("AllFit")) {
-      sprintf(epsfilename,"fit-plots/eps/%s-projMet-data.eps",finalstate);
-      sprintf(Cfilename,"fit-plots/macro/%s-projMet-data.C",finalstate);
+      if(opts.getBoolVal("AllFit")) {
+	sprintf(epsfilename,"fit-plots/eps/%s-projMet-data.eps",finalstate);
+	sprintf(Cfilename,"fit-plots/macro/%s-projMet-data.C",finalstate);
+      }
+      if(opts.getBoolVal("HiggsOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-HiggsOnly-%d.eps",finalstate,Hmass);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-HiggsOnly-%d.C",finalstate,Hmass);
+      }
+      if(opts.getBoolVal("WWOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-WWOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-WWOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("ttbarOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-ttbarOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-ttbarOnly.C",finalstate);
+      }
+      if(opts.getBoolVal("otherOnlyFit")) {
+	sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-otherOnly.eps",finalstate);
+	sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-otherOnly.C",finalstate);
+      }
+      c->SaveAs(epsfilename);
+      c->SaveAs(Cfilename);
     }
-    if(opts.getBoolVal("HiggsOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-HiggsOnly-160.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-HiggsOnly-160.C",finalstate);
-    }
-    if(opts.getBoolVal("WWOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-WWOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-WWOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("ttbarOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-ttbarOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-ttbarOnly.C",finalstate);
-    }
-    if(opts.getBoolVal("otherOnlyFit")) {
-      sprintf(epsfilename,"shapesHiggs/eps/%s-projMet-otherOnly.eps",finalstate);
-      sprintf(Cfilename,"shapesHiggs/macro/%s-projMet-otherOnly.C",finalstate);
-    }
-    c->SaveAs(epsfilename);
-    c->SaveAs(Cfilename);
   }
 
 }
@@ -368,47 +396,43 @@ void PlotHiggsWW(int nbins) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Make the plot for a given variable
-RooPlot *MakePlot(TString VarName, MLFit* theFit, RooDataSet* theData, const char *configfilename, int nbins, bool poissonError=true) {
+RooPlot *MakePlot(TString VarName, MLFit* theFit, RooDataSet* theData, const char *configfilename, int nbins, int channel, bool poissonError=true) {
 
   // Various fit options...
   MLOptions opts = GetDefaultOptions();
 
   RooRealVar* Var = theFit->RealObservable(VarName);
+  RooRealVar *finalstate = theFit->RealObservable("finalstate");
+  finalstate->setVal(channel);
   double min=Var->getMin();
   if(VarName.Contains("bTagImpPar")) min = 0.0; // restrict the btag variable to allowed range (-1000 is the default for bin 0)
   double max=Var->getMax();
   RooPlot *plot = Var->frame(min,max,nbins);
   
   // plot the data
+  char cutstring[100];
+  sprintf(cutstring,"finalstate==%d",channel);
+
   if(poissonError)
-    theData->plotOn(plot);
+    theData->plotOn(plot, RooFit::Cut(cutstring));
   else 
-    theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2) );
+    theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2), RooFit::Cut(cutstring) );
 
-  double Ns = theFit->getRealPar("N_sig")->getVal();
-  double NWW = theFit->getRealPar("N_WW")->getVal();
-  double Nttbar = theFit->getRealPar("N_ttbar")->getVal();
-  double Nother = theFit->getRealPar("N_other")->getVal();
-
-  cout << "Ns = " << Ns << endl; 
-  cout << "NWW = " << NWW << endl;
-  cout << "Nttbar = " << Nttbar << endl;
-  cout << "Nother = " << Nother << endl;
-  
   // plot the total likelihood
   RooAbsPdf *thePdf = theFit->getPdf("myFit");
 
-  thePdf->plotOn(plot, RooFit::Components("myFit_sig"), RooFit::LineColor(kRed), RooFit::LineWidth(2) );       
-  thePdf->plotOn(plot, RooFit::Components("myFit_WW"), RooFit::LineColor(kPink+3), RooFit::LineWidth(2) );       
-  thePdf->plotOn(plot, RooFit::Components("myFit_ttbar"), RooFit::LineColor(kBlue+2), RooFit::LineWidth(2) );       
-  thePdf->plotOn(plot, RooFit::Components("myFit_other"), RooFit::LineColor(kViolet), RooFit::LineWidth(2) );       
+  thePdf->plotOn(plot, RooFit::Components("myFit_sig*"), RooFit::LineColor(kRed), RooFit::LineWidth(2), RooFit::Slice(*finalstate) );       
+  thePdf->plotOn(plot, RooFit::Components("myFit_WW*"), RooFit::LineColor(kPink+3), RooFit::LineWidth(2), RooFit::Slice(*finalstate) );       
+  thePdf->plotOn(plot, RooFit::Components("myFit_ttbar*"), RooFit::LineColor(kBlue+2), RooFit::LineWidth(2), RooFit::Slice(*finalstate) );       
+  thePdf->plotOn(plot, RooFit::Components("myFit_other*"), RooFit::LineColor(kViolet), RooFit::LineWidth(2), RooFit::Slice(*finalstate) );       
 
-  thePdf->plotOn(plot, RooFit::LineColor(kBlack) );
+  thePdf->plotOn(plot, RooFit::LineColor(kBlack), RooFit::Slice(*finalstate) );
 
+  // plot the data again over the lines of the PDFs
   if(poissonError)
-    theData->plotOn(plot);
+    theData->plotOn(plot, RooFit::Cut(cutstring));
   else 
-    theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2) );
+    theData->plotOn(plot, RooFit::DataError(RooAbsData::SumW2), RooFit::Cut(cutstring) );
 
 
   return plot;
