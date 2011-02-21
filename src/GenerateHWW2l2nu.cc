@@ -2,14 +2,13 @@
 enum { ee=0, mm=1, em=2 };
 int finalstate = em;
 int use1jet = 0;
-int higgsmass = 160;
+int Hmass = 160;
 
 // the finalstate is not used in this macro, but it is here because the
 // perl script executes that (being the same to submit GenerateHWW2e.cc)
-void SetFinalState(int f) { finalstate=f; }
 void Use1Jet(int what) { use1jet = what; }
 
-void SetHiggsMass(int what) { higgsmass = what; }
+void SetHiggsMass(int what) { Hmass = what; }
 
 // Set Fit Options
 MLOptions GetDefaultOptions() {
@@ -93,6 +92,10 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   RooRealVar *eff_sig_mm = new RooRealVar("eff_sig_mm","eff_sig_mm",0.5,0,1);
   RooRealVar *eff_sig_em = new RooRealVar("eff_sig_em","eff_sig_em",0.5,0,1);
 
+  // RooRealVar *eff_WW_ee = new RooRealVar("eff_WW_ee","eff_WW_ee",0.5,0,1);
+  // RooRealVar *eff_WW_mm = new RooRealVar("eff_WW_mm","eff_WW_mm",0.5,0,1);
+  // RooRealVar *eff_WW_em = new RooRealVar("eff_WW_em","eff_WW_em",0.5,0,1);
+
   // minimize respect Higgs xsec
   RooRealVar *N_sig_2l2nu = new RooRealVar("N_sig_2l2nu","N_sig_2l2nu",0);
   theFit.defineYield("sig_ee","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_ee));
@@ -100,11 +103,10 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   theFit.defineYield("sig_em","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_em));
 
   // also take W+W- background as correlated between the three final states 
-  // this makes a bias in both signal and WW: not clear why...
-//   RooRealVar *N_WW_2l2nu = new RooRealVar("N_WW_2l2nu","N_WW_2l2nu",0);
-//   theFit.defineYield("WW_ee","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_ee));
-//   theFit.defineYield("WW_mm","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_mm));
-//   theFit.defineYield("WW_em","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_em));
+  // RooRealVar *N_WW_2l2nu = new RooRealVar("N_WW_2l2nu","N_WW_2l2nu",0);
+  // theFit.defineYield("WW_ee","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_ee));
+  // theFit.defineYield("WW_mm","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_mm));
+  // theFit.defineYield("WW_em","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_em));
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
@@ -179,13 +181,26 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   RooAbsPdf *myPdf = theFit.buildModel("myFit");
 
   // Initialize the fit...
-  theFit.initialize("toyconfig/toy-ll-mH160.config");
+  char configfile[200];
+  // initialize backgrounds
+  sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+  theFit.initialize(configfile);
+  // initialize signals
+  sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
+  theFit.initialize(configfile);
+  sprintf(configfile,"fitconfig/H%d-mm.config",Hmass);
+  theFit.initialize(configfile);
+  sprintf(configfile,"fitconfig/H%d-em.config",Hmass);
+  theFit.initialize(configfile);
+  // initialize mass-dependent yields
+  sprintf(configfile,"toyconfig/yields-mH%d.config",Hmass);
+  theFit.initialize(configfile);
 
   MLHWWGenerator theGenerator(theFit, "myFit");
 
   Int_t ngen = theFit.getRealPar("N_sig_2l2nu")->getVal()+
     theFit.getRealPar("N_WW_ee")->getVal()+theFit.getRealPar("N_WW_mm")->getVal()+theFit.getRealPar("N_WW_em")->getVal()+
-    //    theFit.getRealPar("N_WW_2l2nu")->getVal()+
+    //theFit.getRealPar("N_WW_2l2nu")->getVal()+
     theFit.getRealPar("N_ttbar_ee")->getVal()+theFit.getRealPar("N_ttbar_mm")->getVal()+theFit.getRealPar("N_ttbar_em")->getVal()+
     theFit.getRealPar("N_other_ee")->getVal()+theFit.getRealPar("N_other_mm")->getVal()+theFit.getRealPar("N_other_em")->getVal();
   
@@ -220,7 +235,20 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
     myPdf2 = theFit2[0]->buildModel("myFit0");
     
     // Initialize the fit...
-    theFit2[0]->initialize("toyconfig/toy-ll-mH160.config");
+    // initialize backgrounds
+    sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+    theFit2[0]->initialize(configfile);
+    // initialize signals
+    sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
+    theFit2[0]->initialize(configfile);
+    sprintf(configfile,"fitconfig/H%d-mm.config",Hmass);
+    theFit2[0]->initialize(configfile);
+    sprintf(configfile,"fitconfig/H%d-em.config",Hmass);
+    theFit2[0]->initialize(configfile);
+    // initialize mass-dependent yields
+    sprintf(configfile,"toyconfig/yields-mH%d.config",Hmass);
+    theFit2[0]->initialize(configfile);
+
     theFit2[0]->getRealPar("N_sig_2l2nu")->setVal(0.);
     theFit2[0]->getRealPar("N_sig_2l2nu")->setConstant(kTRUE);
   }
@@ -299,9 +327,9 @@ void getSecondFit(int ifit) {
   RooRealVar *eff_sig_mm = new RooRealVar("eff_sig_mm","eff_sig_mm",0.5,0,1);
   RooRealVar *eff_sig_em = new RooRealVar("eff_sig_em","eff_sig_em",0.5,0,1);
 
-//   RooRealVar *eff_WW_ee = new RooRealVar("eff_WW_ee","eff_WW_ee",0.5,0,1);
-//   RooRealVar *eff_WW_mm = new RooRealVar("eff_WW_mm","eff_WW_mm",0.5,0,1);
-//   RooRealVar *eff_WW_em = new RooRealVar("eff_WW_em","eff_WW_em",0.5,0,1);
+  // RooRealVar *eff_WW_ee = new RooRealVar("eff_WW_ee","eff_WW_ee",0.5,0,1);
+  // RooRealVar *eff_WW_mm = new RooRealVar("eff_WW_mm","eff_WW_mm",0.5,0,1);
+  // RooRealVar *eff_WW_em = new RooRealVar("eff_WW_em","eff_WW_em",0.5,0,1);
 
   // minimize respect Higgs xsec
   RooRealVar *N_sig_2l2nu = new RooRealVar("N_sig_2l2nu","N_sig_2l2nu",0);
@@ -310,10 +338,10 @@ void getSecondFit(int ifit) {
   theIFit->defineYield("sig_em","@0*@1", RooArgList(*N_sig_2l2nu,*eff_sig_em));
 
   // also take W+W- background as correlated between the three final states 
-//   RooRealVar *N_WW_2l2nu = new RooRealVar("N_WW_2l2nu","N_WW_2l2nu",0);
-//   theIFit->defineYield("WW_ee","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_ee));
-//   theIFit->defineYield("WW_mm","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_mm));
-//   theIFit->defineYield("WW_em","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_em));
+  // RooRealVar *N_WW_2l2nu = new RooRealVar("N_WW_2l2nu","N_WW_2l2nu",0);
+  // theIFit->defineYield("WW_ee","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_ee));
+  // theIFit->defineYield("WW_mm","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_mm));
+  // theIFit->defineYield("WW_em","@0*@1", RooArgList(*N_WW_2l2nu,*eff_WW_em));
 
   // deltaPhi PDF
   if(opts.getBoolVal("useDeltaPhi")) {
@@ -388,7 +416,20 @@ void getSecondFit(int ifit) {
   RooAbsPdf *myPdf = theIFit->buildModel(fitname);
 
   // Initialize the fit...
-  theIFit->initialize("toyconfig/toy-ll-mH160.config");
+  char configfile[200];
+  // initalize backgrounds
+  sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+  theIFit->initialize(configfile);
+  // initializing signals
+  sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
+  theIFit->initialize(configfile);
+  sprintf(configfile,"fitconfig/H%d-mm.config",Hmass);
+  theIFit->initialize(configfile);
+  sprintf(configfile,"fitconfig/H%d-em.config",Hmass);
+  theIFit->initialize(configfile);
+  // initialize mass-dependent yields
+  sprintf(configfile,"toyconfig/yields-mH%d.config",Hmass);
+  theIFit->initialize(configfile);
 
   theIFit->Print();
   theFit2[ifit] = theIFit;
