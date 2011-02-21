@@ -183,7 +183,7 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
   // Initialize the fit...
   char configfile[200];
   // initialize backgrounds
-  sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+  sprintf(configfile,"toyconfig/toy-ll-mHLow.config",Hmass);
   theFit.initialize(configfile);
   // initialize signals
   sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
@@ -236,7 +236,7 @@ void Generate(Int_t nexp = 1, UInt_t iseed = 65539, char* outfile= 0) {
     
     // Initialize the fit...
     // initialize backgrounds
-    sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+    sprintf(configfile,"toyconfig/toy-ll-mHLow.config",Hmass);
     theFit2[0]->initialize(configfile);
     // initialize signals
     sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
@@ -418,7 +418,7 @@ void getSecondFit(int ifit) {
   // Initialize the fit...
   char configfile[200];
   // initalize backgrounds
-  sprintf(configfile,"toyconfig/toy-ll-mH%d.config",Hmass);
+  sprintf(configfile,"toyconfig/toy-ll-mHLow.config",Hmass);
   theIFit->initialize(configfile);
   // initializing signals
   sprintf(configfile,"fitconfig/H%d-ee.config",Hmass);
