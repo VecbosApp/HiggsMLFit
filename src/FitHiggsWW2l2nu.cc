@@ -499,6 +499,37 @@ void makeLegend() {
   gPad->Update();
 }
 
+void saveRooWorkspace() {
+
+  myFit();
+
+  // Various fit options...
+  MLOptions opts = GetDefaultOptions();
+
+  // Load the data
+  char datasetname[200];
+  if(opts.getBoolVal("AllFit")) sprintf(datasetname,"results_data/datasets/dataset_muAndEg_ll.root");
+  theFit.addDataSetFromRootFile("T1", "T1", datasetname);
+  RooDataSet *data = theFit.getDataSet("T1");
+  data->reduce("jetcat==1");
+
+  // build the fit likelihood
+  RooAbsPdf *myPdf = theFit.buildModel("myFit");
+
+  // Initialize the fit...
+  char configfilename[300];
+  sprintf(configfilename,"fitres/fitMinimum-ll-%dGeV.config",Hmass);
+  theFit.initialize(configfilename);
+  
+  RooWorkspace *w = new RooWorkspace("w","w");
+  w->import(*data);
+  w->import(*myPdf);
+  w->Print("V");
+  w->SaveAs("workspace.root");
+  return;
+
+}
+
 void sPlotHiggsWW(char *useOpt) {
 
   // Various fit options...
